@@ -75,7 +75,7 @@ export default function TermsPage() {
 
         <div className="bg-accent-orange/5 border border-accent-orange/20 rounded-2xl p-5 mb-10">
           <p className="text-sm text-text-muted">
-            <strong className="text-white">Summary:</strong> BeatToday connects beat producers and artists. Producers keep their copyright. Buyers get a license to use the beat. We take a fee on each sale (0–20% depending on plan). Payouts go directly to your bank twice a month. Play fair, and we'll do the same.
+            <strong className="text-white">Summary:</strong> BeatToday connects beat producers and artists. Producers keep their copyright. Buyers get a license to use the beat. We take a fee on each sale (0–20% depending on plan). Payouts go directly to your bank twice a month. Play fair, and we&apos;ll do the same.
           </p>
         </div>
 

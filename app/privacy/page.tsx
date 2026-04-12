@@ -71,7 +71,7 @@ export default function PrivacyPage() {
 
         <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-5 mb-10">
           <p className="text-sm text-text-muted">
-            <strong className="text-white">Short version:</strong> We collect only what we need to run the platform. We don't sell your data. Payments go through Paystack. You can request your data or deletion at any time.
+            <strong className="text-white">Short version:</strong> We collect only what we need to run the platform. We don&apos;t sell your data. Payments go through Paystack. You can request your data or deletion at any time.
           </p>
         </div>
 

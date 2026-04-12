@@ -271,7 +271,6 @@ export default function PromoCodeManager({ codes: initialCodes }: { codes: Promo
           </div>
         )}
       </div>
-      </div>
 
       <Modal
         isOpen={!!codeToDelete}
