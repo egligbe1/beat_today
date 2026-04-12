@@ -57,8 +57,12 @@ export async function GET(request: Request) {
     const templateInfo = templateResult.data
     const buyerProfile = buyerResult.data
 
-    // 3. Prepare data for PDF generation
-    const buyerName = buyerProfile?.display_name || buyerProfile?.handle || 'Valued Customer'
+    // 3. Prepare data for PDF generation with personalized buyer name
+    const buyerName = buyerProfile?.display_name || 
+                     user.user_metadata?.full_name || 
+                     user.user_metadata?.display_name || 
+                     buyerProfile?.handle || 
+                     'Valued Customer'
     const producerProfile = (license.producer as any)
     const producerName = producerProfile?.display_name || producerProfile?.handle || 'Producer'
     const trackTitle = (license.beats as any)?.title || 'Purchased Beat'
