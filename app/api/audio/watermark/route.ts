@@ -17,10 +17,14 @@ const MAX_WATERMARKS = 3
 
 function getFfmpegPath(): string {
   if (process.env.FFMPEG_PATH) return resolve(process.cwd(), process.env.FFMPEG_PATH)
-  const host = process.platform
-  const isWin = host === 'win32'
+  const isWin = process.platform === 'win32'
   const binaryName = isWin ? 'ffmpeg.exe' : 'ffmpeg'
-  return join(process.cwd(), 'node_modules', 'ffmpeg-static', binaryName)
+  
+  // 1. Try node_modules
+  const nodePath = join(process.cwd(), 'node_modules', 'ffmpeg-static', binaryName)
+  
+  // 2. Try common system paths or just the binary name
+  return nodePath
 }
 
 async function getAudioDuration(filePath: string): Promise<number> {

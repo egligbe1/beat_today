@@ -243,12 +243,6 @@ export default function UploadPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ beat_id: beatId, storage_path: storagePaths.mp3Preview }),
         })
-
-        await fetch('/api/audio/watermark', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ beat_id: beatId, storage_path: storagePaths.mp3Preview }),
-        })
       }
 
       router.push('/dashboard/beats')

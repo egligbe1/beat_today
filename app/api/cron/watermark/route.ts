@@ -19,7 +19,12 @@ function getFfmpegPath(): string {
   if (process.env.FFMPEG_PATH) return resolve(process.cwd(), process.env.FFMPEG_PATH)
   const isWin = process.platform === 'win32'
   const binaryName = isWin ? 'ffmpeg.exe' : 'ffmpeg'
-  return join(process.cwd(), 'node_modules', 'ffmpeg-static', binaryName)
+  
+  // 1. Try node_modules
+  const nodePath = join(process.cwd(), 'node_modules', 'ffmpeg-static', binaryName)
+  
+  // 2. Try common system paths or just the binary name
+  return nodePath
 }
 
 async function getAudioDuration(filePath: string): Promise<number> {
@@ -154,6 +159,10 @@ export async function POST(req: Request) {
       results.push({ id: job.id, success: true })
     } catch (err: any) {
       console.error('[CRON ERROR]', err)
+      const beatId = job.beats?.id
+      if (beatId) {
+        await supabaseAdmin.from('beats').update({ watermark_status: 'failed' }).eq('id', beatId)
+      }
       await supabaseAdmin.from('watermark_jobs').update({ status: 'failed', error: err.message }).eq('id', job.id)
       results.push({ id: job.id, success: false, error: err.message })
     } finally {
