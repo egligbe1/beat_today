@@ -16,15 +16,18 @@ const REPEAT_INTERVAL_S = 45
 const MAX_WATERMARKS = 3      
 
 function getFfmpegPath(): string {
+  // If explicitly set, use it
   if (process.env.FFMPEG_PATH) return resolve(process.cwd(), process.env.FFMPEG_PATH)
+  
+  // On Linux (Render), 'ffmpeg' is usually in the PATH.
+  // We can just return 'ffmpeg' and let the shell find it.
+  if (process.platform === 'linux') return 'ffmpeg'
+
   const isWin = process.platform === 'win32'
   const binaryName = isWin ? 'ffmpeg.exe' : 'ffmpeg'
   
-  // 1. Try node_modules
-  const nodePath = join(process.cwd(), 'node_modules', 'ffmpeg-static', binaryName)
-  
-  // 2. Try common system paths or just the binary name
-  return nodePath
+  // 1. Try node_modules fallback for local dev
+  return join(process.cwd(), 'node_modules', 'ffmpeg-static', binaryName)
 }
 
 async function getAudioDuration(filePath: string): Promise<number> {
@@ -187,10 +190,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, preview_url: publicUrl })
 
   } catch (err: any) {
-    console.error('[WATERMARK] Error:', err)
+    const envInfo = `[Platform: ${process.platform}, Arch: ${process.arch}, Path: ${getFfmpegPath()}]`
+    console.error(`[WATERMARK] ${envInfo} Error:`, err)
     if (inner_beat_id) {
       await supabaseAdmin.from('beats').update({ watermark_status: 'failed' }).eq('id', inner_beat_id)
-      await supabaseAdmin.from('watermark_jobs').update({ status: 'failed', error: err.message }).eq('beat_id', inner_beat_id)
+      await supabaseAdmin.from('watermark_jobs').update({ 
+        status: 'failed', 
+        error: `${envInfo} ${err.message}` 
+      }).eq('beat_id', inner_beat_id)
     }
     return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 })
   } finally {
