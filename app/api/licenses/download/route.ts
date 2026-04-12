@@ -18,14 +18,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch the order item and verifying ownership
+    // 1. Fetch the order item license with all required joined data in ONE query
     const { data: license, error } = await supabase
       .from('order_item_licenses')
       .select(`
+        producer_id,
         license_type,
+        signed_at,
+        order_item_id,
         orders!inner(id, buyer_id),
         beats(title),
-        users_profiles!order_item_licenses_producer_id_fkey(display_name, handle)
+        producer:users_profiles!order_item_licenses_producer_id_fkey(display_name, handle)
       `)
       .eq('order_item_id', itemId)
       .eq('buyer_id', user.id)
@@ -36,44 +39,27 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'License not found or access denied' }, { status: 404 })
     }
 
-    // Fetch template details to generate correct PDF
-    const { data: template } = await supabase
-      .from('license_templates')
-      .select('*')
-      .eq('producer_id', license.producer_id) // We need producer_id here
-      .eq('name', license.license_type)
-      .single()
+    // 2. Fetch template details and buyer profile in parallel for performance
+    const [templateResult, buyerResult] = await Promise.all([
+      supabase
+        .from('license_templates')
+        .select('*')
+        .eq('producer_id', license.producer_id)
+        .eq('name', license.license_type)
+        .single(),
+      supabase
+        .from('users_profiles')
+        .select('display_name, handle')
+        .eq('id', user.id)
+        .single()
+    ])
 
-    // Wait, the select didn't explicitly select producer_id. Let me fetch it correctly via another query or adjust above.
-    
-    // Instead of doing multiple queries, I can just grab the exact same data from order_item_licenses and users_profiles
-    const { data: fullLicense } = await supabase
-      .from('order_item_licenses')
-      .select('*')
-      .eq('order_item_id', itemId)
-      .single()
+    const templateInfo = templateResult.data
+    const buyerProfile = buyerResult.data
 
-    const { data: producerProfile } = await supabase
-      .from('users_profiles')
-      .select('display_name, handle')
-      .eq('id', fullLicense?.producer_id)
-      .single()
-      
-    const { data: buyerProfile } = await supabase
-      .from('users_profiles')
-      .select('display_name, handle')
-      .eq('id', user.id)
-      .single()
-
-    const { data: templateInfo } = await supabase
-      .from('license_templates')
-      .select('*')
-      .eq('producer_id', fullLicense?.producer_id)
-      .eq('name', fullLicense?.license_type)
-      .single()
-
-    // Since generateLicensePdf expects specific properties:
+    // 3. Prepare data for PDF generation
     const buyerName = buyerProfile?.display_name || buyerProfile?.handle || 'Valued Customer'
+    const producerProfile = (license.producer as any)
     const producerName = producerProfile?.display_name || producerProfile?.handle || 'Producer'
     const trackTitle = (license.beats as any)?.title || 'Purchased Beat'
 
@@ -82,16 +68,17 @@ export async function GET(request: Request) {
       buyerName,
       producerName,
       trackTitle,
-      licenseType: fullLicense?.license_type || 'Unknown',
+      licenseType: license.license_type || 'Unknown',
       terms: {
         streamingLimit: templateInfo?.streaming_limit?.toLocaleString() || '50,000',
         mvLimit: templateInfo?.music_video_limit?.toString() || '1',
         radioRights: templateInfo?.radio_broadcasting ? 'Radio Rights Included' : 'No Radio Rights',
         nonProfit: templateInfo?.is_non_profit_only || false,
       },
-      date: new Date(fullLicense?.signed_at || new Date()).toLocaleDateString(),
+      date: new Date(license.signed_at || new Date()).toLocaleDateString(),
     })
 
+    // 4. Return the generated PDF
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
