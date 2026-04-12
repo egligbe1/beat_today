@@ -49,15 +49,22 @@ export async function fulfillOrder({
     return null // Already completed — safe to skip
   }
 
-  // 2. Get buyer profile
-  const { data: buyerProfile } = await supabaseAdmin
-    .from('users_profiles')
-    .select('display_name, email, handle')
-    .eq('id', updatedOrder.buyer_id)
-    .single()
+  // 2. Get buyer profile and auth details for personalization
+  const [{ data: buyerProfile }, { data: authResult }] = await Promise.all([
+    supabaseAdmin
+      .from('users_profiles')
+      .select('display_name, email, handle')
+      .eq('id', updatedOrder.buyer_id)
+      .single(),
+    supabaseAdmin.auth.admin.getUserById(updatedOrder.buyer_id)
+  ])
 
-  const buyerEmail = externalBuyerEmail || buyerProfile?.email
-  const buyerName = buyerProfile?.display_name || buyerProfile?.handle || 'Valued Customer'
+  const buyerEmail = externalBuyerEmail || buyerProfile?.email || authResult.user?.email
+  const buyerName = buyerProfile?.display_name || 
+                   authResult.user?.user_metadata?.full_name || 
+                   authResult.user?.user_metadata?.display_name || 
+                   buyerProfile?.handle || 
+                   'Valued Customer'
 
   // 3. Process each cart item
   for (const item of cartItems) {
