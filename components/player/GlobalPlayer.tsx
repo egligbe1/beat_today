@@ -64,7 +64,8 @@ export default function GlobalPlayer() {
   useEffect(() => {
     const handleResize = () => {
       if (wavesurfer.current && isReady) {
-        wavesurfer.current.draw()
+        // WaveSurfer v7 handles resizing automatically/differently
+        // and does not have a manual .draw() method.
       }
     }
     window.addEventListener('resize', handleResize)

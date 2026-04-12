@@ -64,14 +64,18 @@ export async function GET(req: Request) {
       return NextResponse.redirect(`${siteUrl}/dashboard/subscription?error=upgrade_failed`)
     }
 
-    // Send a notification to the producer
-    await supabaseAdmin.from('notifications').insert({
-      user_id: userId,
-      type: 'subscription_upgraded',
-      title: `Welcome to ${tier}!`,
-      body: `Your account has been upgraded to ${tier}. Enjoy your new features!`,
-      link: '/dashboard/subscription',
-    }).catch(() => {/* non-fatal */})
+    // Send a notification to the producer (non-fatal)
+    try {
+      await supabaseAdmin.from('notifications').insert({
+        user_id: userId,
+        type: 'subscription_upgraded',
+        title: `Welcome to ${tier}!`,
+        body: `Your account has been upgraded to ${tier}. Enjoy your new features!`,
+        link: '/dashboard/subscription',
+      })
+    } catch (e) {
+      console.warn('Non-fatal: Failed to send subscription notification:', e)
+    }
 
     return NextResponse.redirect(`${siteUrl}/dashboard/subscription?subscription=success&tier=${tier}`)
   } catch (err: any) {
