@@ -36,15 +36,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Beat not found or not yours' }, { status: 403 })
   }
 
-  // Insert into the job queue for cron retry resilience.
-  // The upload page awaits /api/audio/watermark directly — this entry exists
-  // only so the cron can pick it up if the direct call fails or times out.
+  // 1. Insert into the job queue for cron retry resilience.
   await supabaseAdmin
     .from('watermark_jobs')
     .upsert(
       { beat_id, storage_path, status: 'pending', attempts: 0, error: null, processed_at: null },
       { onConflict: 'beat_id' }
     )
+
+  // 2. Trigger the watermark API in the background (no await)
+  // This allows the upload to finish instantly while the server starts processing.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  fetch(`${siteUrl}/api/audio/watermark`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.CRON_SECRET || 'internal'}`
+    },
+    body: JSON.stringify({ beat_id, storage_path }),
+  }).catch(err => console.error('[QUEUE] Failed to trigger background watermark:', err))
 
   return NextResponse.json({ success: true })
 }
