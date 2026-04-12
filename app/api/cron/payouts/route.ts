@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
 import { getExchangeRates } from '@/lib/utils/rates'
 import { verifyQStashSignature } from '@/lib/qstash'
 
