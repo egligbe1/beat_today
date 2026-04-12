@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
 import { verifyQStashSignature } from '@/lib/qstash'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
