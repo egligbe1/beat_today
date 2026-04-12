@@ -101,7 +101,7 @@ export default function HeroCarousel({ tracks = [] }: { tracks?: any[] }) {
                 </div>
                 
                 <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-[0.9]">
-                  {slides[current].title.split(' ').map((word, i) => (
+                  {slides[current].title.split(' ').map((word: string, i: number) => (
                     word.toLowerCase().includes('hit') || word.toLowerCase().includes('future')
                       ? <span key={i} className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF5500] to-[#FFB000]">{word} </span>
                       : word + ' '
