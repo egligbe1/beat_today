@@ -4,6 +4,7 @@ import { spawn } from 'child_process'
 import { writeFile, readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
+import { verifyQStashSignature } from '@/lib/qstash'
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,9 +52,9 @@ function runFfmpeg(args: string[]): Promise<void> {
   })
 }
 
-export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+export async function POST(req: Request) {
+  const isValid = await verifyQStashSignature(req.clone())
+  if (!isValid && process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getExchangeRates } from '@/lib/utils/rates'
+import { verifyQStashSignature } from '@/lib/qstash'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -20,10 +20,9 @@ const COUNTRY_CURRENCY: Record<string, string> = {
   'South Africa': 'ZAR',
 }
 
-export async function GET(req: Request) {
-  // Protect from unauthorized calls — Vercel sends this automatically for cron routes
-  const authHeader = req.headers.get('authorization')
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+export async function POST(req: Request) {
+  const isValid = await verifyQStashSignature(req.clone())
+  if (!isValid && process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

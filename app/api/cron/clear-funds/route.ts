@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyQStashSignature } from '@/lib/qstash'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -9,10 +9,9 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 // 7 Days in MS for the financial clearance period
 const CLEARANCE_DELAY_MS = 7 * 24 * 60 * 60 * 1000 
 
-export async function GET(req: Request) {
-  // 1. Authenticate Cron (Vercel sets a CRON_SECRET header to prevent abuse)
-  const authHeader = req.headers.get('authorization')
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+export async function POST(req: Request) {
+  const isValid = await verifyQStashSignature(req.clone())
+  if (!isValid && process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
