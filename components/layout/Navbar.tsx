@@ -25,38 +25,55 @@ export default function Navbar() {
   const CURRENCIES = ['USD', 'NGN', 'GHS', 'ZAR', 'KES', 'GBP', 'EUR']
 
   useEffect(() => {
-    const getUser = async () => {
-      setLoadingRole(true)
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
-        setUser(data.user)
-        const { data: profile } = await supabase
+    let mounted = true;
+
+    async function fetchUserAndRole(authUser: any = null) {
+      try {
+        setLoadingRole(true);
+        const currentUser = authUser || (await supabase.auth.getUser()).data.user;
+        
+        if (!currentUser) {
+          if (mounted) {
+            setUser(null);
+            setRole(null);
+            setLoadingRole(false);
+          }
+          return;
+        }
+
+        if (mounted) setUser(currentUser);
+
+        const { data: profile, error } = await supabase
           .from('users_profiles')
           .select('role')
-          .eq('id', data.user.id)
-          .single()
-        if (profile) setRole(profile.role)
+          .eq('id', currentUser.id)
+          .single();
+
+        if (mounted) {
+          if (error) {
+            console.error('Error fetching profile:', error);
+            setRole(null);
+          } else {
+            setRole(profile?.role || null);
+          }
+          setLoadingRole(false);
+        }
+      } catch (err) {
+        console.error('Unexpected error in Navbar state:', err);
+        if (mounted) setLoadingRole(false);
       }
-      setLoadingRole(false)
     }
-    getUser()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        setLoadingRole(true)
-        const { data: profile } = await supabase
-          .from('users_profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single()
-        if (profile) setRole(profile.role)
-        setLoadingRole(false)
-      } else {
-        setRole(null)
-        setLoadingRole(false)
-      }
-    })
-    return () => subscription.unsubscribe()
+
+    fetchUserAndRole();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      fetchUserAndRole(session?.user);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    }
   }, [supabase])
 
   // Close currency dropdown on outside click

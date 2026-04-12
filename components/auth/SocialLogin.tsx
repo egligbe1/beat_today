@@ -8,13 +8,15 @@ export default function SocialLogin() {
   const supabase = createClient()
 
   const getAuthRedirectUrl = () => {
+    // Always prioritize the actual browser origin to ensure redirects stay on the same domain
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/api/auth/callback`
+    }
+
+    // Fallback for SSR if window is not available
     const publicUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')
     if (publicUrl) {
       return `${publicUrl}/api/auth/callback`
-    }
-
-    if (globalThis.window) {
-      return `${globalThis.window.location.origin.replace('0.0.0.0', 'localhost')}/api/auth/callback`
     }
 
     return 'http://localhost:3000/api/auth/callback'

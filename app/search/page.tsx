@@ -20,14 +20,13 @@ export default async function SearchPage({
   const mood = searchParams.mood || 'All'
 
   let beatsQuery = supabase
-    .from('beats')
-    .select('id, title, genre, bpm, price_mp3, price_wav, price_trackout, price_exclusive, is_exclusive_sold, is_free, cover_url, mp3_preview_url, status, watermark_status, play_count, mood_tags, producer_id, created_at, users_profiles!producer_id(handle, display_name, producer_settings(subscription_tier))')
-    .eq('status', 'active')
-    .eq('watermark_status', 'done')
+    .from('search_catalog')
+    .select('*')
 
   if (query) {
+    // Search across title, producer handle, producer display name, genre, and mood
     beatsQuery = beatsQuery.or(
-      `title.ilike.%${query}%,genre.ilike.%${query}%,mood_tags.cs.{${query}}`
+      `title.ilike.%${query}%,producer_handle.ilike.%${query}%,producer_display_name.ilike.%${query}%,genre.ilike.%${query}%,mood_tags.cs.{${query}}`
     )
   }
 
@@ -43,14 +42,23 @@ export default async function SearchPage({
     default: beatsQuery = beatsQuery.order('created_at', { ascending: false }); break
   }
 
-  const { data: rawBeats, error } = await beatsQuery
+  const { data: rawData, error } = await beatsQuery
   if (error) console.error('Supabase Search Error:', error)
+
+  // Map view results to the nested structure BeatCard expects
+  const rawBeats = rawData?.map((item: any) => ({
+    ...item,
+    users_profiles: {
+      handle: item.producer_handle,
+      display_name: item.producer_display_name
+    }
+  }))
 
   const TIER_WEIGHT: Record<string, number> = { pro: 2, starter: 1, free: 0 }
   const beats = (rawBeats && sort === 'newest')
     ? [...rawBeats].sort((a: any, b: any) => {
-        const aTier = (a.users_profiles?.producer_settings?.subscription_tier || 'free').toLowerCase()
-        const bTier = (b.users_profiles?.producer_settings?.subscription_tier || 'free').toLowerCase()
+        const aTier = (a.subscription_tier || 'free').toLowerCase()
+        const bTier = (b.subscription_tier || 'free').toLowerCase()
         const weightDiff = (TIER_WEIGHT[bTier] ?? 0) - (TIER_WEIGHT[aTier] ?? 0)
         if (weightDiff !== 0) return weightDiff
         return new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime()
