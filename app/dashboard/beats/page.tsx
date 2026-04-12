@@ -80,12 +80,24 @@ export default function ProducerBeatsDashboard() {
       })
       
       const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Failed to delete')
       
+      // If the response is not OK and it's NOT a success result (our API now returns success: true for missing beats)
+      if (!response.ok && !result.success) {
+        throw new Error(result.error || 'Failed to delete')
+      }
+      
+      // Update UI state
       setBeats(prev => prev.filter(b => b.id !== beatToDelete.id))
-      showToast.success('Track and associated files deleted successfully.')
+      
+      if (result.message && result.message.includes('already removed')) {
+        showToast.success('Track was already removed.')
+      } else {
+        showToast.success('Track and associated files deleted successfully.')
+      }
+      
       setBeatToDelete(null)
     } catch (err: any) {
+      console.error('Deletion error:', err)
       showToast.error('Failed to delete track: ' + err.message)
     } finally {
       setIsDeleting(false)
