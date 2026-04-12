@@ -7,9 +7,7 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   // if "next" is in search params, use it as the redirection URL
   const next = searchParams.get('next') ?? '/'
-  const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? process.env.NEXTAUTH_URL?.replace(/\/$/, '')
-  const requestOrigin = requestUrl.origin.replace('0.0.0.0', 'localhost')
-  const origin = configuredOrigin ?? requestOrigin
+  const origin = requestUrl.origin
 
   if (code) {
     const supabase = createClient()
