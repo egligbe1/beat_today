@@ -8,9 +8,16 @@ export async function DELETE(
 ) {
   try {
     const beatId = params.beatId
+    
+    // 1. Validate UUID format before proceeding
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(beatId)) {
+      return NextResponse.json({ error: 'Invalid track ID format' }, { status: 400 })
+    }
+
     const supabase = createClient()
     
-    // 1. Verify Authentication
+    // 2. Verify Authentication
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -21,15 +28,24 @@ export async function DELETE(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // 2. Fetch beat to get file paths before deletion
+    // 3. Fetch beat to get file paths before deletion
     const { data: beat, error: fetchError } = await supabaseAdmin
       .from('beats')
       .select('producer_id, file_mp3_url, file_wav_url, file_stems_url, mp3_preview_url, cover_url')
       .eq('id', beatId)
-      .single()
+      .maybeSingle() // Use maybeSingle to avoid 406/error if zero rows
 
-    if (fetchError || !beat) {
-      return NextResponse.json({ error: 'Beat not found' }, { status: 404 })
+    if (fetchError) {
+      console.error('Fetch error during deletion:', fetchError)
+      return NextResponse.json({ error: `Database error: ${fetchError.message}` }, { status: 500 })
+    }
+
+    // IDEMPOTENCY: If the beat is already gone, return success
+    if (!beat) {
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Track was already removed or does not exist.' 
+      })
     }
 
     // 3. Verify Ownership
