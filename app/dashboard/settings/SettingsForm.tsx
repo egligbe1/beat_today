@@ -122,7 +122,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
           }
         })
     }
-  }, [isPro, profile?.id])
+  }, [isPro, profile?.id, supabase])
 
   // Fetch banks when country changes (bank tab)
   useEffect(() => {

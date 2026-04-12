@@ -113,7 +113,7 @@ export default function NavbarSearch() {
 
     const debounceTimer = setTimeout(searchBeats, 250)
     return () => clearTimeout(debounceTimer)
-  }, [query]) // Removed supabase from dependencies to prevent infinite re-renders
+  }, [query, supabase])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

@@ -42,7 +42,7 @@ export function useOwnedLicenses(beatId: string | undefined) {
     }
 
     fetchOwned()
-  }, [beatId])
+  }, [beatId, supabase])
 
   const isOwned = (licenseType: string) => ownedLicenses.includes(licenseType)
 

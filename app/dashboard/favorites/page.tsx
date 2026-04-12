@@ -36,7 +36,7 @@ export default async function FavoritesPage() {
     <div className="space-y-8 pb-20">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-black text-white uppercase tracking-tight">Your Favorites</h1>
-        <p className="text-text-muted">Quickly access all the beats you've liked.</p>
+        <p className="text-text-muted">Quickly access all the beats you&apos;ve liked.</p>
       </div>
 
       {favoritedBeats.length > 0 ? (
