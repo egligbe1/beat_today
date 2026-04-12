@@ -79,7 +79,7 @@ export async function GET(request: Request) {
     })
 
     // 4. Return the generated PDF
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

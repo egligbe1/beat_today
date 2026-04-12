@@ -8,11 +8,10 @@ import Link from 'next/link'
 
 interface BeatResult {
   id: string
+  type: 'beat' | 'producer'
   title: string
-  producer_name: string
-  producer_handle: string
-  genre: string
-  cover_url: string
+  subtitle: string
+  image: string | null
 }
 
 export default function NavbarSearch() {
@@ -87,14 +86,14 @@ export default function NavbarSearch() {
         const formattedResults = [
           ...(beats?.map((beat: any) => ({
             id: beat.id,
-            type: 'beat',
+            type: 'beat' as const,
             title: beat.title,
             subtitle: `by ${beat.users_profiles?.display_name || 'Unknown'} • ${beat.genre}`,
             image: beat.cover_url
           })) || []),
           ...(producers?.map((p: any) => ({
             id: p.handle,
-            type: 'producer',
+            type: 'producer' as const,
             title: p.display_name || p.handle,
             subtitle: `@${p.handle}`,
             image: p.avatar_url

@@ -52,7 +52,7 @@ export default function BeatCard({ beat, priority }: BeatCardProps) {
         title: beat.title,
         producer_name: beat.users_profiles.display_name,
         cover_url: beat.cover_url,
-        mp3_preview_url: beat.mp3_preview_url,
+        mp3_preview_url: beat.mp3_preview_url || '',
       })
     }
   }
