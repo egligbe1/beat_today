@@ -42,7 +42,7 @@ export default function ProducerBeatsDashboard() {
           mp3_preview_url, 
           play_count, 
           created_at, 
-          users_profiles!producer_id(handle, display_name)
+          users_profiles!beats_producer_id_fkey(handle, display_name)
         `)
         .eq('producer_id', user.id)
         .order('created_at', { ascending: false })

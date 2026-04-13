@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
-import BeatCard from '@/components/beats/BeatCard'
+
+export const revalidate = 0
 import FollowButton from '@/components/profile/FollowButton'
 import ContactButton from '@/components/profile/ContactButton'
-import { MapPin, Music, Users, Music2, TrendingUp, Globe, Star, ExternalLink } from 'lucide-react'
+import ProfileTabsContainer from '@/components/profile/ProfileTabsContainer'
+import { MapPin, Music, Users, Music2, TrendingUp, Star, Globe } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export async function generateMetadata({ params }: { params: { handle: string } }): Promise<Metadata> {
@@ -42,7 +44,7 @@ export async function generateMetadata({ params }: { params: { handle: string } 
 export default async function ProducerProfilePage({ params }: { params: { handle: string } }) {
   const supabase = createClient()
   
-  // 1. Clean the handle (handle might come with %40 or @)
+  // 1. Clean the handle
   const cleanHandle = decodeURIComponent(params.handle).replace(/^@/, '')
 
   // 2. Fetch Producer Profile
@@ -57,26 +59,70 @@ export default async function ProducerProfilePage({ params }: { params: { handle
     return notFound()
   }
 
-  // 3. Fetch Beats from Producer
+  // Ensure producer_settings exists or fetch it separately as fallback
+  let settings = Array.isArray(producer.producer_settings) 
+    ? producer.producer_settings[0] 
+    : producer.producer_settings
+
+  if (!settings) {
+    const { data: fallbackSettings } = await supabase
+      .from('producer_settings')
+      .select('*')
+      .eq('user_id', producer.id)
+      .maybeSingle()
+    settings = fallbackSettings
+  }
+
+  // Get current user and follow status
+  const { data: { session } } = await supabase.auth.getSession()
+  let isFollowing = false
+  if (session?.user) {
+    const { data: follow } = await supabase
+      .from('follows')
+      .select('*')
+      .eq('follower_id', session.user.id)
+      .eq('following_id', producer.id)
+      .maybeSingle()
+    isFollowing = !!follow
+  }
+
+  // 3. Fetch Beats from Producer (hardened)
   const { data: beats } = await supabase
     .from('beats')
-    .select('*, users_profiles!inner(handle, display_name)')
+    .select('*, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
     .eq('producer_id', producer.id)
+    .eq('status', 'active')
     .order('created_at', { ascending: false })
 
-  // 4. Fetch Stats (Followers)
+  // 4. Fetch Stats
   const { count: followersCount } = await supabase
     .from('follows')
     .select('*', { count: 'exact', head: true })
     .eq('following_id', producer.id)
 
-  const { count: beatsCount } = await supabase
-    .from('beats')
-    .select('*', { count: 'exact', head: true })
-    .eq('producer_id', producer.id)
-    .eq('status', 'active')
+  const beatsCount = beats?.length || 0
 
-  const producerRating = Math.min(5, Math.max(1, Math.ceil(Math.log10((producer.producer_settings?.total_plays || 0) + 1))))
+  const aggregatedPlays = beats?.reduce((sum, b) => sum + (b.play_count || 0), 0) || 0
+  const totalPlays = Math.max(settings?.total_plays || 0, aggregatedPlays)
+
+  // 5. Fetch Producer Aggregate Rating from their beats
+  const beatIds = beats?.map(b => b.id) || []
+  let avgRating = 0
+  let totalReviews = 0
+
+  if (beatIds.length > 0) {
+    const { data: ratingData } = await supabase
+      .from('beat_reviews')
+      .select('rating')
+      .in('beat_id', beatIds)
+    
+    totalReviews = ratingData?.length || 0
+    if (totalReviews > 0) {
+      avgRating = ratingData!.reduce((sum, r) => sum + r.rating, 0) / totalReviews
+    }
+  }
+
+  const producerRating = totalReviews > 0 ? avgRating.toFixed(1) : "5.0"
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -100,14 +146,9 @@ export default async function ProducerProfilePage({ params }: { params: { handle
             {/* Basic Info */}
             <div className="flex-1 space-y-4">
                 <div className="flex items-center gap-2">
-                    {producer.producer_settings?.subscription_tier === 'PRO' && (
+                    {settings?.subscription_tier === 'pro' && (
                         <span className="bg-gradient-to-r from-[#FFB000] to-[#FF5500] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_20px_rgba(255,176,0,0.3)]">
                             <TrendingUp className="w-3 h-3" /> PRO Member
-                        </span>
-                    )}
-                    {producer.producer_settings?.subscription_tier === 'STARTER' && (
-                        <span className="bg-white/10 text-white text-[10px] items-center font-black px-2 py-0.5 rounded-sm uppercase tracking-widest border border-white/10">
-                            Starter
                         </span>
                     )}
                     <span className="text-[#00E676] text-[10px] uppercase font-bold tracking-widest flex items-center gap-1">
@@ -125,34 +166,24 @@ export default async function ProducerProfilePage({ params }: { params: { handle
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
                     <span className="inline-flex items-center gap-2 bg-bg-elevated px-3 py-2 rounded-full border border-border-subtle">
-                        <Star className="w-4 h-4 text-[#FFB000]" /> {producerRating}.0 Artist Rating
+                        <Star className="w-4 h-4 text-[#FFB000]" /> {producerRating} Artist Rating ({totalReviews})
                     </span>
                     <span className="inline-flex items-center gap-2 bg-bg-elevated px-3 py-2 rounded-full border border-border-subtle">
-                        <span className="font-bold text-white">{producer.producer_settings?.total_plays?.toLocaleString() || '0'}</span> Total Plays
+                        <span className="font-bold text-white">{totalPlays.toLocaleString()}</span> Total Plays
                     </span>
                 </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
-                <FollowButton followingId={producer.id} initialIsFollowing={false} />
+                <FollowButton followingId={producer.id} initialIsFollowing={isFollowing} />
                 <ContactButton producerId={producer.id} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Profile Navigation */}
-      <div className="sticky top-0 bg-bg-primary/80 backdrop-blur-xl z-20 border-b border-border-subtle">
-        <div className="max-w-7xl mx-auto px-4 flex items-center gap-10 h-16 text-sm font-bold uppercase tracking-widest text-text-muted">
-            <button className="text-accent-orange border-b-2 border-accent-orange h-full">Beats</button>
-            <button className="hover:text-text-primary transition-colors">Albums</button>
-            <button className="hover:text-text-primary transition-colors">Drumkits</button>
-            <button className="hover:text-text-primary transition-colors">Contact</button>
-        </div>
-      </div>
-
-      {/* Profile Content */}
+      {/* Profile Navigation & Content */}
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
             
@@ -175,83 +206,33 @@ export default async function ProducerProfilePage({ params }: { params: { handle
                       <div className="space-y-3">
                           {producer.social_links.website && (
                             <a href={producer.social_links.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-white transition-colors">
-                              <Globe className="w-4 h-4" /> Website <ExternalLink className="w-3 h-3 ml-auto" />
+                              <Globe className="w-4 h-4" /> Website
                             </a>
                           )}
                           {producer.social_links.instagram && (
-                            <a href={`https://instagram.com/${producer.social_links.instagram.replace('@','')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-[#E1306C] transition-colors font-bold">
-                              <span className="w-4 h-4 flex items-center justify-center text-[10px] font-black border border-current rounded">IG</span>
-                              {producer.social_links.instagram} <ExternalLink className="w-3 h-3 ml-auto" />
-                            </a>
+                             <a href={`https://instagram.com/${producer.social_links.instagram.replace('@','')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-[#E1306C] transition-colors font-bold">
+                               <span className="w-4 h-4 flex items-center justify-center text-[10px] font-black border border-current rounded">IG</span>
+                               {producer.social_links.instagram}
+                             </a>
                           )}
                           {producer.social_links.twitter && (
-                            <a href={`https://twitter.com/${producer.social_links.twitter.replace('@','')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-sky-400 transition-colors font-bold">
-                              <span className="w-4 h-4 flex items-center justify-center text-[10px] font-black border border-current rounded">X</span>
-                              {producer.social_links.twitter} <ExternalLink className="w-3 h-3 ml-auto" />
-                            </a>
-                          )}
-                          {producer.social_links.youtube && (
-                            <a href={producer.social_links.youtube} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-red-500 transition-colors font-bold">
-                              <span className="w-4 h-4 flex items-center justify-center text-[10px] font-black border border-current rounded">YT</span>
-                              YouTube <ExternalLink className="w-3 h-3 ml-auto" />
-                            </a>
-                          )}
-                          {producer.social_links.soundcloud && (
-                            <a href={producer.social_links.soundcloud} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-[#FF5500] transition-colors font-bold">
-                              <span className="w-4 h-4 flex items-center justify-center text-[10px] font-black border border-current rounded">SC</span>
-                              SoundCloud <ExternalLink className="w-3 h-3 ml-auto" />
-                            </a>
-                          )}
-                          {producer.social_links.spotify && (
-                            <a href={producer.social_links.spotify} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-[#1DB954] transition-colors font-bold">
-                              <span className="w-4 h-4 flex items-center justify-center text-[10px] font-black border border-current rounded">SP</span>
-                              Spotify <ExternalLink className="w-3 h-3 ml-auto" />
-                            </a>
+                             <a href={`https://twitter.com/${producer.social_links.twitter.replace('@','')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-sky-400 transition-colors font-bold">
+                               <span className="w-4 h-4 flex items-center justify-center text-[10px] font-black border border-current rounded">X</span>
+                               {producer.social_links.twitter}
+                             </a>
                           )}
                       </div>
                   </div>
                 )}
             </div>
 
-            {/* Main Content: Beats Grid */}
-            <div className="lg:col-span-8 space-y-10">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-black uppercase tracking-tight">Latest Releases</h2>
-                    <div className="text-xs font-bold uppercase tracking-widest text-text-muted">Sort by: Newest</div>
-                </div>
-
-                {beats && beats.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                        {beats.map((beat) => (
-                            <BeatCard key={beat.id} beat={beat} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-20 bg-bg-surface rounded-3xl border-2 border-dashed border-border-subtle">
-                        <p className="text-text-muted">No beats published yet.</p>
-                    </div>
-                )}
-
-                {/* Statistics Overview */}
-                <div className="bg-bg-surface p-12 rounded-[40px] border border-border-subtle grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-                    <div>
-                        <p className="text-[10px] uppercase font-black tracking-[0.2em] text-accent-gold mb-2">Total Plays</p>
-                        <p className="text-3xl font-black">{producer.producer_settings?.total_plays || 0}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] uppercase font-black tracking-[0.2em] text-accent-gold mb-2">Beats Sold</p>
-                        <p className="text-3xl font-black">0</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] uppercase font-black tracking-[0.2em] text-accent-gold mb-2">Active Stems</p>
-                        <p className="text-3xl font-black">{beatsCount || 0}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] uppercase font-black tracking-[0.2em] text-accent-gold mb-2">Reviews</p>
-                        <p className="text-3xl font-black">No reviews</p>
-                    </div>
-                </div>
-            </div>
+            {/* Main Content: Interactive Tabs Container */}
+            <ProfileTabsContainer 
+                beats={beats || []} 
+                producer={producer} 
+                totalPlays={totalPlays}
+                totalReviews={totalReviews}
+            />
 
         </div>
       </div>

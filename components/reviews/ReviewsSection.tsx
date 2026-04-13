@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Star, Loader2, ThumbsUp } from 'lucide-react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 
 interface Review {
   id: string
@@ -25,18 +26,28 @@ function StarRating({ value, onChange, readonly }: { value: number; onChange?: (
         <button
           key={star}
           type="button"
-          onClick={() => !readonly && onChange?.(star)}
+          onClick={() => {
+            if (!readonly && onChange) {
+              console.log('Star clicked:', star)
+              onChange(star)
+            }
+          }}
           onMouseEnter={() => !readonly && setHovered(star)}
           onMouseLeave={() => !readonly && setHovered(0)}
           disabled={readonly}
-          className="disabled:cursor-default"
+          className={cn(
+            "p-1.5 rounded-lg transition-all duration-200",
+            !readonly && "hover:bg-white/5 active:scale-90 cursor-pointer",
+            readonly && "cursor-default"
+          )}
         >
           <Star
-            className={`w-5 h-5 transition-colors ${
+            className={cn(
+              "w-6 h-6 transition-all",
               star <= (hovered || value)
-                ? 'text-accent-gold fill-accent-gold'
-                : 'text-text-muted'
-            }`}
+                ? 'text-accent-gold fill-accent-gold scale-110'
+                : 'text-text-muted hover:text-white/40'
+            )}
           />
         </button>
       ))}
@@ -88,11 +99,12 @@ export default function ReviewsSection({ beatId }: { beatId: string }) {
 
         setHasPurchased(!!purchase)
 
-        // Check for existing review
-        const existing = data.reviews?.find((r: Review & { reviewer_id?: string }) =>
-          // We don't have reviewer_id in response, match by handle approach
-          false
-        )
+        const existing = data.reviews?.find((r: any) => r.reviewer_id === authUser.id)
+        if (existing) {
+          setExistingReview(existing)
+          setRating(existing.rating)
+          setComment(existing.comment || '')
+        }
         // Re-fetch to check user's own review
         const { data: myReview } = await supabase
           .from('beat_reviews')
