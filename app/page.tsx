@@ -17,7 +17,7 @@ export default async function Home({ searchParams }: { searchParams: { genre?: s
 
   const beatsQuery = supabase
     .from('beats')
-    .select('*, users_profiles!inner(handle, display_name)')
+    .select('*, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
     .eq('status', 'active')
     .order('created_at', { ascending: false })
     .limit(8)

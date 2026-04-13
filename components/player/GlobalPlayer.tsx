@@ -82,9 +82,18 @@ export default function GlobalPlayer() {
         if (currentBeat && currentBeat.id !== lastTrackedBeatId.current) {
           if (playTimer.current) clearTimeout(playTimer.current)
           playTimer.current = setTimeout(async () => {
-            const { error } = await usePlayerStore.getState().incrementPlay(currentBeat.id)
-            if (!error) lastTrackedBeatId.current = currentBeat.id
-          }, 3000)
+            try {
+              const { error } = await usePlayerStore.getState().incrementPlay(currentBeat.id)
+              if (!error) {
+                lastTrackedBeatId.current = currentBeat.id
+                console.log('Play counted for:', currentBeat.id)
+              } else {
+                console.error('Failed to count play:', error)
+              }
+            } catch (err) {
+              console.error('Play count error:', err)
+            }
+          }, 1000)
         }
       } else {
         wavesurfer.current.pause()

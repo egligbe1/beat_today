@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const supabase = createClient()
   const { data: beat } = await supabase
     .from('beats')
-    .select('title, genre, bpm, cover_url, users_profiles!producer_id(display_name)')
+    .select('title, genre, bpm, cover_url, users_profiles!beats_producer_id_fkey(display_name)')
     .eq('id', params.id)
     .single()
 
@@ -38,7 +38,7 @@ export default async function BeatDetailPage({ params }: { params: { id: string 
 
   const { data: beat, error } = await supabase
     .from('beats')
-    .select('*, users_profiles!producer_id(*)')
+    .select('*, users_profiles!beats_producer_id_fkey(*)')
     .eq('id', params.id)
     .eq('status', 'active')
     .single()
@@ -47,7 +47,7 @@ export default async function BeatDetailPage({ params }: { params: { id: string 
 
   const { data: relatedBeats } = await supabase
     .from('beats')
-    .select('*, users_profiles!producer_id(handle, display_name)')
+    .select('*, users_profiles!beats_producer_id_fkey(handle, display_name)')
     .eq('producer_id', beat.producer_id)
     .neq('id', beat.id)
     .limit(4)

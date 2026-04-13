@@ -40,18 +40,18 @@ const DEFAULT_SLIDES: Slide[] = [
 export default function HeroCarousel({ tracks = [] }: { tracks?: any[] }) {
   const [current, setCurrent] = useState(0)
   
-  // Create slides from tracks if available, otherwise use defaults
-  const slides = tracks.length > 0 
-    ? tracks.slice(0, 3).map((track, i) => ({
-        id: track.id,
-        title: track.title,
-        subtitle: `Produced by ${track.users_profiles?.display_name || 'Top Producer'}`,
-        image: track.cover_url || DEFAULT_SLIDES[0].image,
-        ctaText: "License Now",
-        ctaHref: `/beats/${track.id}`,
-        accentColor: i % 2 === 0 ? "#FF5500" : "#FFB000"
-      }))
-    : DEFAULT_SLIDES
+  // Create slides: Main brand slide always first, then featured tracks
+  const dynamicSlides = tracks.slice(0, 3).map((track, i) => ({
+    id: track.id,
+    title: track.title,
+    subtitle: `Produced by ${track.users_profiles?.display_name || 'Top Producer'}`,
+    image: track.cover_url || DEFAULT_SLIDES[0].image,
+    ctaText: "License Now",
+    ctaHref: `/beats/${track.id}`,
+    accentColor: i % 2 === 0 ? "#FF5500" : "#FFB000"
+  }))
+
+  const slides = [DEFAULT_SLIDES[0], ...dynamicSlides]
 
   useEffect(() => {
     const timer = setInterval(() => {

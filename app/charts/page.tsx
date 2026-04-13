@@ -18,7 +18,7 @@ export default async function ChartsPage() {
   // Top beats by play count (all time)
   const { data: topByPlays } = await supabase
     .from('beats')
-    .select('*, users_profiles!producer_id(handle, display_name, avatar_url)')
+    .select('*, users_profiles!beats_producer_id_fkey(handle, display_name, avatar_url)')
     .eq('status', 'active')
     .order('play_count', { ascending: false })
     .limit(20)
@@ -29,7 +29,7 @@ export default async function ChartsPage() {
 
   const { data: recentSales } = await supabase
     .from('order_items')
-    .select('beat_id, price, beats(id, title, cover_url, genre, bpm, price_mp3, play_count, producer_id, users_profiles!producer_id(handle, display_name))')
+    .select('beat_id, price, beats(id, title, cover_url, genre, bpm, price_mp3, play_count, producer_id, users_profiles!beats_producer_id_fkey(handle, display_name))')
     .gte('created_at', thirtyDaysAgo.toISOString())
 
   // Aggregate by beat
