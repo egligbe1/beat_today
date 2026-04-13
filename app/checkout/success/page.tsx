@@ -71,60 +71,62 @@ export default async function CheckoutSuccessPage({
                 
                 <div className="space-y-4">
                    {orderItems?.map((item: any) => (
-                       <div key={item.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-bg-primary border border-border-subtle">
-                            <div className="flex items-center gap-4">
-                                <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-bg-elevated flex-shrink-0">
-                                    {item.beats?.cover_url ? (
-                                        <Image src={item.beats.cover_url} alt={item.beats.title} fill className="object-cover" />
-                                    ) : (
-                                        <Music className="w-6 h-6 text-text-muted m-auto absolute inset-0" />
+                       <div key={item.id} className="p-4 rounded-2xl bg-bg-primary border border-border-subtle space-y-4">
+                            {/* Main Info Row */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-bg-elevated flex-shrink-0">
+                                        {item.beats?.cover_url ? (
+                                            <Image src={item.beats.cover_url} alt={item.beats.title} fill className="object-cover" />
+                                        ) : (
+                                            <Music className="w-6 h-6 text-text-muted m-auto absolute inset-0" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-text-primary">{item.beats?.title || 'Unknown Beat'}</h4>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-accent-gold bg-accent-gold/10 px-2 py-0.5 rounded mt-1 inline-block">
+                                            {item.license_type}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Download Links — go through secure /api/download to verify auth */}
+                                <div className="flex items-center gap-2">
+                                    {item.beats?.file_mp3_url && (
+                                        <Link href={`/api/download?beat_id=${item.beats.id}&file=mp3&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
+                                            <Download className="w-4 h-4" /> MP3
+                                        </Link>
+                                    )}
+                                    {['wav', 'trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_wav_url && (
+                                        <Link href={`/api/download?beat_id=${item.beats.id}&file=wav&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
+                                            <Download className="w-4 h-4" /> WAV
+                                        </Link>
+                                    )}
+                                    {['trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_stems_url && (
+                                        <Link href={`/api/download?beat_id=${item.beats.id}&file=stems&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
+                                            <Download className="w-4 h-4" /> STEMS
+                                        </Link>
                                     )}
                                 </div>
-                                <div>
-                                    <h4 className="font-bold text-text-primary">{item.beats?.title || 'Unknown Beat'}</h4>
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent-gold bg-accent-gold/10 px-2 py-0.5 rounded mt-1 inline-block">
-                                        {item.license_type}
-                                    </span>
-                                </div>
                             </div>
 
-                            {/* Download Links — go through secure /api/download to verify auth */}
-                            <div className="flex items-center gap-2">
-                                {item.beats?.file_mp3_url && (
-                                    <Link href={`/api/download?beat_id=${item.beats.id}&file=mp3&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
-                                        <Download className="w-4 h-4" /> MP3
-                                    </Link>
+                            {/* License Section */}
+                            {!isPending && (
+                              <div className="pt-4 border-t border-border-subtle/50">
+                                {(Array.isArray(item.order_item_licenses) ? item.order_item_licenses[0]?.final_legal_text : (item.order_item_licenses as any)?.final_legal_text) ? (
+                                  <LicenseModal 
+                                    licenseText={Array.isArray(item.order_item_licenses) ? item.order_item_licenses[0].final_legal_text : (item.order_item_licenses as any).final_legal_text}
+                                    orderItemId={item.id}
+                                    beatTitle={item.beats?.title || 'Beat'}
+                                  />
+                                ) : (
+                                  <div className="text-[10px] text-text-muted italic px-4">
+                                    License agreement will be available in your library shortly.
+                                  </div>
                                 )}
-                                {['wav', 'trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_wav_url && (
-                                    <Link href={`/api/download?beat_id=${item.beats.id}&file=wav&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
-                                        <Download className="w-4 h-4" /> WAV
-                                    </Link>
-                                )}
-                                {['trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_stems_url && (
-                                    <Link href={`/api/download?beat_id=${item.beats.id}&file=stems&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
-                                        <Download className="w-4 h-4" /> STEMS
-                                    </Link>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* License Section */}
-                        {item.order_item_licenses && (
-                          <div className="mt-4 pt-4 border-t border-border-subtle/50">
-                            {(Array.isArray(item.order_item_licenses) ? item.order_item_licenses[0]?.final_legal_text : (item.order_item_licenses as any)?.final_legal_text) ? (
-                              <LicenseModal 
-                                licenseText={Array.isArray(item.order_item_licenses) ? item.order_item_licenses[0].final_legal_text : (item.order_item_licenses as any).final_legal_text}
-                                orderItemId={item.id}
-                                beatTitle={item.beats?.title || 'Beat'}
-                              />
-                            ) : (
-                              <div className="text-[10px] text-text-muted italic px-4">
-                                License agreement will be available in your library shortly.
                               </div>
                             )}
-                          </div>
-                        )}
-                   </div>
+                       </div>
                    ))}
                 </div>
                 
