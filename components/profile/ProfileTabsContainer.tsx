@@ -46,7 +46,7 @@ export default function ProfileTabsContainer({ beats, producer, totalPlays, tota
             </div>
             <h3 className="text-lg font-black uppercase tracking-widest text-white mb-2">{activeTab} Coming Soon</h3>
             <p className="text-text-muted text-sm max-w-xs mx-auto">
-              {producer.display_name} hasn't uploaded any {activeTab.toLowerCase()} yet. Stay tuned!
+              {producer.display_name} hasn&apos;t uploaded any {activeTab.toLowerCase()} yet. Stay tuned!
             </p>
           </div>
         )
