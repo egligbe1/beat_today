@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { formatCurrency } from '@/lib/utils'
+import LicenseModal from '@/components/library/LicenseModal'
 
 export default async function CheckoutSuccessPage({
   searchParams,
@@ -33,8 +34,9 @@ export default async function CheckoutSuccessPage({
 
   const { data: orderItems } = await supabase
     .from('order_items')
-    .select('*, beats(*)')
+    .select('*, beats(*), order_item_licenses(*)')
     .eq('order_id', orderId)
+    .order('created_at', { ascending: true })
 
   // Polling component imported here
   const SuccessPolling = (await import('./SuccessPolling')).default
@@ -104,7 +106,25 @@ export default async function CheckoutSuccessPage({
                                     </Link>
                                 )}
                             </div>
-                       </div>
+                        </div>
+
+                        {/* License Section */}
+                        {item.order_item_licenses && (
+                          <div className="mt-4 pt-4 border-t border-border-subtle/50">
+                            {(Array.isArray(item.order_item_licenses) ? item.order_item_licenses[0]?.final_legal_text : (item.order_item_licenses as any)?.final_legal_text) ? (
+                              <LicenseModal 
+                                licenseText={Array.isArray(item.order_item_licenses) ? item.order_item_licenses[0].final_legal_text : (item.order_item_licenses as any).final_legal_text}
+                                orderItemId={item.id}
+                                beatTitle={item.beats?.title || 'Beat'}
+                              />
+                            ) : (
+                              <div className="text-[10px] text-text-muted italic px-4">
+                                License agreement will be available in your library shortly.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                   </div>
                    ))}
                 </div>
                 

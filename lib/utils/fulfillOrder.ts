@@ -144,15 +144,24 @@ export async function fulfillOrder({
 
       // --- License Generation ---
       try {
-        const { generateLicenseContract, PLATFORM_DEFAULT_LICENSE } = await import('@/lib/utils/licenseGenerator')
+        const { generateLicenseContract, PLATFORM_DEFAULT_LICENSE, LICENSE_DEFAULTS } = await import('@/lib/utils/licenseGenerator')
         const { sendLicenseEmail } = await import('@/lib/utils/emailService')
         const { generateLicensePdf } = await import('@/lib/utils/pdfGenerator')
+
+        // Map checkout license types to internal template/default keys
+        const licenseTypeMap: Record<string, string> = {
+          mp3: 'basic',
+          wav: 'premium',
+          trackout: 'unlimited',
+          exclusive: 'exclusive'
+        }
+        const internalLicenseType = licenseTypeMap[item.license_type] || item.license_type
 
         const { data: template } = await supabaseAdmin
           .from('license_templates')
           .select('*')
           .eq('producer_id', item.producer_id)
-          .eq('name', item.license_type)
+          .eq('type', internalLicenseType)
           .single()
 
         const { data: producerProfile } = await supabaseAdmin
@@ -177,7 +186,13 @@ export async function fulfillOrder({
 
         const producerName = producerProfile?.display_name || 'BeatToday Producer'
         const trackTitle = beat?.title || 'Your Purchase'
-        const contractText = generateLicenseContract(template?.contract_text || PLATFORM_DEFAULT_LICENSE, {
+        
+        // Use custom template if exists, else use the industry standard default for this specific license type
+        const baseTemplate = template?.contract_text || 
+                           LICENSE_DEFAULTS[internalLicenseType as keyof typeof LICENSE_DEFAULTS]?.contract_text || 
+                           PLATFORM_DEFAULT_LICENSE
+
+        const contractText = generateLicenseContract(baseTemplate, {
           PRODUCER_NAME: producerName,
           BUYER_NAME: buyerName,
           TRACK_TITLE: trackTitle,
