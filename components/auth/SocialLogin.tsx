@@ -2,24 +2,14 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useState } from 'react'
+import { getSiteUrl } from '@/lib/utils/url'
 
 export default function SocialLogin() {
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
   const getAuthRedirectUrl = () => {
-    // Always prioritize the actual browser origin to ensure redirects stay on the same domain
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}/api/auth/callback`
-    }
-
-    // Fallback for SSR if window is not available
-    const publicUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')
-    if (publicUrl) {
-      return `${publicUrl}/api/auth/callback`
-    }
-
-    return 'http://localhost:3000/api/auth/callback'
+    return `${getSiteUrl()}/api/auth/callback`
   }
 
   const handleGoogleLogin = async () => {
