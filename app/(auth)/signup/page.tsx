@@ -7,6 +7,7 @@ import Link from 'next/link'
 import SocialLogin from '@/components/auth/SocialLogin'
 import CountrySelect from '@/components/ui/CountrySelect'
 import { showToast } from '@/lib/utils/toast'
+import { getSiteUrl } from '@/lib/utils/url'
 
 
 export default function SignupPage() {
@@ -27,16 +28,7 @@ export default function SignupPage() {
   const supabase = createClient()
 
   const getAuthRedirectUrl = () => {
-    const publicUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')
-    if (publicUrl) {
-      return `${publicUrl}/api/auth/callback`
-    }
-
-    if (globalThis.window) {
-      return `${globalThis.window.location.origin.replace('0.0.0.0', 'localhost')}/api/auth/callback`
-    }
-
-    return 'http://localhost:3000/api/auth/callback'
+    return `${getSiteUrl()}/api/auth/callback`
   }
 
   useEffect(() => {
