@@ -131,8 +131,9 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
       return
     }
     let active = true
+    setBanks([]) // Clear banks immediately so old country banks do not show
     setIsFetchingBanks(true)
-    fetch(`/api/payouts/banks?country=${encodeURIComponent(form.country)}`)
+    fetch(`/api/payouts/banks?country=${encodeURIComponent(form.country)}&_t=${Date.now()}`)
       .then(r => r.json())
       .then(data => { if (active && data.success) setBanks(data.banks) })
       .catch(() => setBanks([]))
