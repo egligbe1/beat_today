@@ -89,7 +89,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
     // Bank
     bank_name: bankData.bank_name || '',
     account_number: bankData.account_number || '',
-    account_name: bankData.account_name || profile?.display_name || '',
+    account_name: bankData.account_name || '',
     bank_code: bankData.bank_code || '',
     iban: bankData.iban || '',
     swift_code: bankData.swift_code || '',
@@ -250,7 +250,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
             bank_code: selectedBank?.code || form.bank_code || '',
             iban: form.iban,
             swift_code: form.swift_code,
-            account_name: form.account_name || form.display_name,
+            account_name: form.account_name,
           },
           mobile_money: {
             country: form.country,
@@ -283,7 +283,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
               country: form.country,
               account_number: form.account_number,
               bank_code: form.bank_code,
-              account_name: form.account_name || form.display_name,
+              account_name: form.account_name,
               bank_name: selectedBank?.name || form.bank_name,
             }),
           })
@@ -579,7 +579,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase tracking-widest text-text-muted">Account Holder Name</label>
                   <input type="text" name="account_name" value={form.account_name} onChange={handleChange}
-                    placeholder="Full name as it appears on bank statement"
+                    placeholder="Name as it appears on bank account"
                     className="w-full bg-bg-primary/50 border border-border-subtle rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-accent-gold transition-all text-white" />
                 </div>
 
