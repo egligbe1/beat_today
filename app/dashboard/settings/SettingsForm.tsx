@@ -528,7 +528,10 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
             <label className="text-[11px] font-black uppercase tracking-widest text-text-muted">Payout Country</label>
             <CountrySelect
               value={form.country}
-              onChange={(value) => setForm(prev => ({ ...prev, country: value, bank_code: '', bank_name: '', account_number: '', mobile_number: '', mobile_network: '' }))}
+              onChange={(value) => {
+                setForm(prev => ({ ...prev, country: value, bank_code: '', bank_name: '', account_number: '', mobile_number: '', mobile_network: '' }))
+                setVerifiedName(null)
+              }}
               className="w-full bg-bg-primary/50 border border-border-subtle rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-accent-gold transition-all text-white"
             />
           </div>
@@ -602,7 +605,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
                   {verifiedName && (
                     <div className="flex items-center gap-2 text-green-500 mt-2 px-2">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Verified: {verifiedName}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Account Name: {verifiedName}</span>
                     </div>
                   )}
                 </div>
