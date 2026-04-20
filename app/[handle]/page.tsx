@@ -361,7 +361,7 @@ function renderArtistProfile({ profile, followersCount, isFollowing, favoritedBe
                ) : (
                  <div className="bg-bg-surface border border-dashed border-border-subtle rounded-3xl p-12 text-center flex flex-col items-center">
                     <Music className="w-12 h-12 text-text-muted/50 mb-4" />
-                    <h3 className="text-lg font-bold text-white mb-2">{profile.display_name} hasn't favorited any beats yet.</h3>
+                    <h3 className="text-lg font-bold text-white mb-2">{profile.display_name} hasn&apos;t favorited any beats yet.</h3>
                     <p className="text-text-muted text-sm">When they like tracks, they will appear here.</p>
                  </div>
                )}
