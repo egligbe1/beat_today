@@ -10,8 +10,6 @@ import { User, Save, AlertCircle, CheckCircle2, Camera, Building2, CreditCard, G
 import Image from 'next/image'
 import { showToast } from '@/lib/utils/toast'
 
-// Paystack bank/resolve (account name lookup) works reliably for Nigeria only.
-// Ghana/Kenya/SA use different rail types where resolution may not be supported.
 const VERIFY_SUPPORTED = new Set(['Nigeria'])
 const AUTO_VERIFY_COUNTRIES = new Set(['Nigeria', 'Ghana', 'Kenya', 'South Africa'])
 
@@ -39,6 +37,7 @@ interface SettingsFormState {
   // Bank account
   bank_name: string
   account_number: string
+  account_name: string
   bank_code: string
   iban: string
   swift_code: string
@@ -74,9 +73,6 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
   const [searchTerm, setSearchTerm] = useState('')
   const [isFetchingBanks, setIsFetchingBanks] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
-  const [verifiedName, setVerifiedName] = useState<string | null>(
-    settings?.bank_details?.bank?.account_name || null
-  )
 
   const supabase = createClient()
   const router = useRouter()
@@ -93,6 +89,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
     // Bank
     bank_name: bankData.bank_name || '',
     account_number: bankData.account_number || '',
+    account_name: bankData.account_name || profile?.display_name || '',
     bank_code: bankData.bank_code || '',
     iban: bankData.iban || '',
     swift_code: bankData.swift_code || '',
@@ -143,9 +140,8 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    if (e.target.name === 'account_number' || e.target.name === 'bank_code') setVerifiedName(null)
   }
-
+  
   const handleVerifyAccount = async () => {
     if (!form.account_number || !form.bank_code) {
       setError('Please enter account number and select a bank first.')
@@ -153,12 +149,11 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
     }
     setIsVerifying(true)
     setError(null)
-    setVerifiedName(null)
     try {
       const res = await fetch(`/api/payouts/verify-bank?account_number=${form.account_number}&bank_code=${form.bank_code}`)
       const data = await res.json()
       if (data.success) {
-        setVerifiedName(data.account_name)
+        setForm(prev => ({ ...prev, account_name: data.account_name }))
         showToast.success(`Verified: ${data.account_name}`)
       } else {
         setError(data.error || 'Could not verify account.')
@@ -170,6 +165,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
       setIsVerifying(false)
     }
   }
+
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return
@@ -225,12 +221,6 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
     setSuccess(false)
     setVerificationMessage(null)
 
-    // Enforce bank verification only for Nigeria (where Paystack resolve is reliable)
-    if (activeTab === 'bank' && VERIFY_SUPPORTED.has(form.country) && !verifiedName) {
-      setError('Please verify your bank account details before saving.')
-      setLoading(false)
-      return
-    }
 
     try {
       // 1. Update Profile
@@ -260,7 +250,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
             bank_code: selectedBank?.code || form.bank_code || '',
             iban: form.iban,
             swift_code: form.swift_code,
-            account_name: verifiedName || bankData.account_name || form.display_name,
+            account_name: form.account_name || form.display_name,
           },
           mobile_money: {
             country: form.country,
@@ -293,7 +283,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
               country: form.country,
               account_number: form.account_number,
               bank_code: form.bank_code,
-              account_name: verifiedName || form.display_name,
+              account_name: form.account_name || form.display_name,
               bank_name: selectedBank?.name || form.bank_name,
             }),
           })
@@ -332,7 +322,9 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
     }
   }
 
-  const filteredBanks = banks.filter(b => b.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredBanks = banks
+    .filter(b => b.country === form.country)
+    .filter(b => b.name.toLowerCase().includes(searchTerm.toLowerCase()))
   const mobileNetworks = MOBILE_MONEY_NETWORKS[form.country] || []
 
   return (
@@ -530,7 +522,6 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
               value={form.country}
               onChange={(value) => {
                 setForm(prev => ({ ...prev, country: value, bank_code: '', bank_name: '', account_number: '', mobile_number: '', mobile_network: '' }))
-                setVerifiedName(null)
               }}
               className="w-full bg-bg-primary/50 border border-border-subtle rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-accent-gold transition-all text-white"
             />
@@ -586,6 +577,13 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-text-muted">Account Holder Name</label>
+                  <input type="text" name="account_name" value={form.account_name} onChange={handleChange}
+                    placeholder="Full name as it appears on bank statement"
+                    className="w-full bg-bg-primary/50 border border-border-subtle rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-accent-gold transition-all text-white" />
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase tracking-widest text-text-muted">Account Number</label>
                   <div className="flex gap-3">
                     <div className="flex-1 relative">
@@ -602,12 +600,6 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
                       </button>
                     )}
                   </div>
-                  {verifiedName && (
-                    <div className="flex items-center gap-2 text-green-500 mt-2 px-2">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Account Name: {verifiedName}</span>
-                    </div>
-                  )}
                 </div>
               </div>
 
