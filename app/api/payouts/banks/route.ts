@@ -17,8 +17,11 @@ export async function GET(req: Request) {
     const countryCode = COUNTRY_CODE_MAP[country]
 
     if (!countryCode) {
+      console.error(`[Banks API] Unsupported country: ${country}`)
       return NextResponse.json({ success: false, error: 'Unsupported country for bank lookup via Paystack.' }, { status: 400 })
     }
+
+    console.log(`[Banks API] Fetching banks for: ${country} (${countryCode})`)
 
     const secret = process.env.PAYSTACK_SECRET_KEY
     if (!secret) {
