@@ -10,6 +10,7 @@ import { User, Save, AlertCircle, CheckCircle2, Camera, Building2, CreditCard, G
 import Image from 'next/image'
 import { showToast } from '@/lib/utils/toast'
 
+const VERIFY_SUPPORTED = new Set(['Nigeria'])
 const AUTO_VERIFY_COUNTRIES = new Set(['Nigeria', 'Ghana', 'Kenya', 'South Africa'])
 
 // Mobile money networks per country
@@ -71,6 +72,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
   const [banks, setBanks] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isFetchingBanks, setIsFetchingBanks] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
 
   const supabase = createClient()
   const router = useRouter()
@@ -139,6 +141,30 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
+  
+  const handleVerifyAccount = async () => {
+    if (!form.account_number || !form.bank_code) {
+      setError('Please enter account number and select a bank first.')
+      return
+    }
+    setIsVerifying(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/payouts/verify-bank?account_number=${form.account_number}&bank_code=${form.bank_code}`)
+      const data = await res.json()
+      if (data.success) {
+        setForm(prev => ({ ...prev, account_name: data.account_name }))
+        showToast.success(`Verified: ${data.account_name}`)
+      } else {
+        setError(data.error || 'Could not verify account.')
+        showToast.error('Verification failed')
+      }
+    } catch {
+      setError('An error occurred during verification.')
+    } finally {
+      setIsVerifying(false)
+    }
+  }
 
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,12 +221,6 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
     setSuccess(false)
     setVerificationMessage(null)
 
-    // Enforce bank verification only for Nigeria (where Paystack resolve is reliable)
-    if (activeTab === 'bank' && VERIFY_SUPPORTED.has(form.country) && !verifiedName) {
-      setError('Please verify your bank account details before saving.')
-      setLoading(false)
-      return
-    }
 
     try {
       // 1. Update Profile
@@ -565,11 +585,20 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
 
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase tracking-widest text-text-muted">Account Number</label>
-                  <div className="relative">
-                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                    <input type="text" name="account_number" value={form.account_number} onChange={handleChange}
-                      placeholder="0123456789"
-                      className="w-full bg-bg-primary/50 border border-border-subtle rounded-2xl pl-11 pr-4 py-4 text-sm font-mono focus:outline-none focus:border-accent-gold transition-all text-white" />
+                  <div className="flex gap-3">
+                    <div className="flex-1 relative">
+                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                      <input type="text" name="account_number" value={form.account_number} onChange={handleChange}
+                        placeholder="0123456789"
+                        className="w-full bg-bg-primary/50 border border-border-subtle rounded-2xl pl-11 pr-4 py-4 text-sm font-mono focus:outline-none focus:border-accent-gold transition-all text-white" />
+                    </div>
+                    {VERIFY_SUPPORTED.has(form.country) && (
+                      <button type="button" onClick={handleVerifyAccount}
+                        disabled={isVerifying || !form.account_number || !form.bank_code}
+                        className="px-6 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold uppercase tracking-wider hover:bg-white/10 transition-all disabled:opacity-30 min-w-[90px]">
+                        {isVerifying ? '...' : 'Verify'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
