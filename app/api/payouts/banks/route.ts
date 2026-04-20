@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const COUNTRY_CODE_MAP: Record<string, string> = {
   Nigeria: 'nigeria',
   Ghana: 'ghana',
@@ -28,6 +31,7 @@ export async function GET(req: Request) {
         Authorization: `Bearer ${secret}`,
         'Content-Type': 'application/json',
       },
+      cache: 'no-store'
     })
 
     const data = await response.json()
