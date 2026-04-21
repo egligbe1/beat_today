@@ -60,6 +60,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://zinihlwafqvuaznisjcw.supabase.co" />
+        <link rel="dns-prefetch" href="https://zinihlwafqvuaznisjcw.supabase.co" />
+      </head>
       <body className={inter.className}>
         <CurrencyProvider>
           <Navbar />

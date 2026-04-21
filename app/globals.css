@@ -147,3 +147,13 @@ body {
 .animate-slide-left {
   animation: slideLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+@keyframes progressSlide {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-progress-slide {
+  animation: progressSlide 2s infinite ease-in-out;
+}
