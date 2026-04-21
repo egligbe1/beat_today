@@ -42,12 +42,16 @@ export default async function ExplorePage() {
     if (favoritesRes.data) favoritedIds = favoritesRes.data.map(f => f.beat_id)
   }
 
-  let { data: beats } = await beatsPromise
+  let { data: rawBeats } = await beatsPromise
+  let beats: any[] = []
 
-  if (beats) {
+  if (rawBeats) {
     // Apply Trending + Tier Algorithm in memory for high-performance blending
-    beats = beats.map((beat: any) => {
-      const tier = beat.users_profiles?.producer_settings?.[0]?.subscription_tier || 'FREE'
+    beats = (rawBeats as any[]).map((beat: any) => {
+      // Handle the nested structure from Supabase
+      const profile = Array.isArray(beat.users_profiles) ? beat.users_profiles[0] : beat.users_profiles
+      const tier = profile?.producer_settings?.[0]?.subscription_tier || 'FREE'
+      
       const likes = beat.favorites?.[0]?.count || 0
       const comments = beat.beat_comments?.[0]?.count || 0
       const plays = beat.play_count || 0
@@ -57,7 +61,15 @@ export default async function ExplorePage() {
       const hoursOld = (Date.now() - new Date(beat.created_at).getTime()) / 1000 / 3600
       
       const score = (tierScore + engagementScore) - (hoursOld * 5)
-      return { ...beat, discovery_score: score }
+      
+      // Clean up the object to match FeedBeat interface exactly
+      const { producer_settings, ...cleanProfile } = profile || {}
+      
+      return { 
+        ...beat, 
+        users_profiles: cleanProfile,
+        discovery_score: score 
+      }
     }).sort((a: any, b: any) => b.discovery_score - a.discovery_score)
       .slice(0, 20)
   }
