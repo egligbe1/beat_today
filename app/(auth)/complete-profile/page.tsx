@@ -54,17 +54,18 @@ export default function CompleteProfilePage() {
       
       const { data: profile } = await supabase
         .from('users_profiles')
-        .select('id')
+        .select('id, role, handle')
         .eq('id', user.id)
         .single()
       
-      if (profile) {
+      // Only redirect if they have a role AND a proper handle (onboarding complete)
+      if (profile?.role && profile?.handle && !profile.handle.includes('v_handle')) {
         router.push('/')
       }
 
       // Pre-fill form with signup data from user metadata
-      if (user.user_metadata?.display_name) {
-        setDisplayName(user.user_metadata.display_name)
+      if (user.user_metadata?.display_name || user.user_metadata?.full_name) {
+        setDisplayName(user.user_metadata.display_name || user.user_metadata.full_name)
       }
       if (user.user_metadata?.handle) {
         setHandle(user.user_metadata.handle)
