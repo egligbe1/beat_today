@@ -9,6 +9,7 @@ import CountrySelect from '@/components/ui/CountrySelect'
 import { User, Save, AlertCircle, CheckCircle2, Camera, Building2, CreditCard, Globe, Smartphone, Music, Lock, Upload } from 'lucide-react'
 import Image from 'next/image'
 import { showToast } from '@/lib/utils/toast'
+import { convertToWebP } from '@/lib/utils/storageUtils'
 
 const VERIFY_SUPPORTED = new Set(['Nigeria'])
 const AUTO_VERIFY_COUNTRIES = new Set(['Nigeria', 'Ghana', 'Kenya', 'South Africa'])
@@ -172,8 +173,17 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
     setLoading(true)
     setError(null)
     try {
-      const file = e.target.files[0]
-      const fileName = `${profile.id}-${Math.random()}.${file.name.split('.').pop()}`
+      let file = e.target.files[0]
+      
+      // Convert to WebP for optimization
+      try {
+        const webpBlob = await convertToWebP(file)
+        file = new File([webpBlob], `${file.name.split('.')[0]}.webp`, { type: 'image/webp' })
+      } catch (err) {
+        console.warn('WebP conversion failed, falling back to original format:', err)
+      }
+
+      const fileName = `${profile.id}-${Date.now()}.webp`
       const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
       if (uploadError) throw uploadError
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
