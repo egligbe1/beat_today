@@ -46,8 +46,10 @@ CREATE TRIGGER tr_sync_beat_comments
 AFTER INSERT OR DELETE ON public.beat_comments
 FOR EACH ROW EXECUTE FUNCTION public.sync_beat_comments_count();
 
--- 4. Update the optimized Discovery view to use these pre-calculated columns
--- This removes two subqueries per row, drastically speeding up the Explore page.
+-- 4. Update the optimized Discovery view
+-- Drop first to avoid column name mismatch error
+DROP VIEW IF EXISTS discovery_feed_trending CASCADE;
+
 CREATE OR REPLACE FUNCTION calculate_beat_heat_score(
   p_beat_id UUID,
   p_created_at TIMESTAMPTZ,
