@@ -8,7 +8,7 @@ export default function ValuePropSplit() {
       {/* For Artists */}
       <div className="group relative overflow-hidden rounded-3xl bg-bg-surface border border-white/5 aspect-[3/2] sm:aspect-auto sm:h-[480px] shadow-2xl transition-all hover:border-[#FFB000]/30">
         <Image
-          src="/cta-artist.png"
+          src="/cta-artist.webp"
           alt="Artists"
           fill
           className="object-cover opacity-40 group-hover:scale-105 transition-transform duration-[2s]"
@@ -39,7 +39,7 @@ export default function ValuePropSplit() {
       {/* For Producers */}
       <div className="group relative overflow-hidden rounded-3xl bg-bg-surface border border-white/5 aspect-[3/2] sm:aspect-auto sm:h-[480px] shadow-2xl transition-all hover:border-[#FF5500]/30">
         <Image
-          src="/cta-producer.png"
+          src="/cta-producer.webp"
           alt="Producers"
           fill
           className="object-cover opacity-40 group-hover:scale-105 transition-transform duration-[2s]"

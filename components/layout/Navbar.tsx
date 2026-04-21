@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/lib/stores/cartStore'
-import { Music, LayoutDashboard, LogOut, ShoppingCart, Globe, Search, ChevronDown, AlertCircle } from 'lucide-react'
+import { Music, LayoutDashboard, LogOut, ShoppingCart, Globe, Search, ChevronDown, AlertCircle, Play } from 'lucide-react'
 import { useCurrency } from '@/lib/providers/CurrencyProvider'
 import NavbarSearch from './NavbarSearch'
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -109,6 +109,13 @@ export default function Navbar() {
           <Link href="/charts" className="hidden lg:block text-[11px] font-black uppercase tracking-widest text-text-muted hover:text-[#FF5500] transition-colors">
             Charts
           </Link>
+          <Link href="/explore" className="hidden lg:block text-[11px] font-black uppercase tracking-widest text-[#FF5500] hover:text-white transition-colors flex items-center gap-1 bg-[#FF5500]/10 px-2 py-0.5 rounded-full">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF5500] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#FF5500]"></span>
+            </span>
+            Explore
+          </Link>
         </div>
 
         {/* ── Center: Search (desktop) ── */}
@@ -132,6 +139,14 @@ export default function Navbar() {
             className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-text-muted hover:text-white transition-colors"
           >
             <Search className="w-4 h-4" />
+          </Link>
+
+          {/* Mobile Explore icon */}
+          <Link
+            href="/explore"
+            className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-[#FF5500]/10 border border-[#FF5500]/20 text-[#FF5500] hover:bg-[#FF5500]/20 transition-all active:scale-95"
+          >
+            <Play className="w-4 h-4 fill-current ml-0.5" />
           </Link>
 
           {/* Currency — desktop only */}

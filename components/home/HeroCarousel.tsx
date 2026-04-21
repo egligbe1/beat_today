@@ -21,7 +21,7 @@ const DEFAULT_SLIDES: Slide[] = [
     id: 's1',
     title: "Your First Hit Starts Here.",
     subtitle: "License premium beats from Africa's top producers. Instant delivery. Full ownership.",
-    image: "/hero-studio.png",
+    image: "/hero-studio.webp",
     ctaText: "Explore Discovery",
     ctaHref: "/search",
     accentColor: "#FF5500"
@@ -30,7 +30,7 @@ const DEFAULT_SLIDES: Slide[] = [
     id: 's2',
     title: "The Sound of the Future.",
     subtitle: "Amapiano, Afrobeats, and Drill. The world is listening to the rhythm of the continent.",
-    image: "/genre-rnb.png", // Fallback image
+    image: "/genre-rnb.webp", // Fallback image
     ctaText: "Browse Genres",
     ctaHref: "/search?genre=Amapiano",
     accentColor: "#FFB000"

@@ -2,10 +2,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 const categories = [
-  { name: 'AFROBEATS', slug: 'Afrobeats', image: '/genre-trap.png' },
-  { name: 'AMAPIANO', slug: 'Amapiano', image: '/genre-hiphop.png' },
-  { name: 'HIGHLIFE', slug: 'Highlife', image: '/genre-rnb.png' },
-  { name: 'AFRO-DRILL', slug: 'Afro-drill', image: '/genre-drill.png' },
+  { name: 'AFROBEATS', slug: 'Afrobeats', image: '/genre-trap.webp' },
+  { name: 'AMAPIANO', slug: 'Amapiano', image: '/genre-hiphop.webp' },
+  { name: 'HIGHLIFE', slug: 'Highlife', image: '/genre-rnb.webp' },
+  { name: 'AFRO-DRILL', slug: 'Afro-drill', image: '/genre-drill.webp' },
 ]
 
 export default function CategoryGrid() {

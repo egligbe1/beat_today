@@ -69,7 +69,23 @@ export async function fulfillOrder({
   // 3. Process each cart item
   for (const item of cartItems) {
     try {
-      // --- Producer Payout Logic ---
+      // --- Producer Payout Logic & Splits ---
+      // 1. Fetch splits
+      const { data: collaborators } = await supabaseAdmin
+        .from('beat_collaborators')
+        .select('collaborator_id, split_percentage')
+        .eq('beat_id', item.beat_id)
+      
+      const collabs = collaborators || []
+      const totalCollabPercent = collabs.reduce((sum, c) => sum + Number(c.split_percentage), 0)
+      const primaryPercent = Math.max(0, 100 - totalCollabPercent)
+      
+      const splits = [
+        { user_id: item.producer_id, percentage: primaryPercent },
+        ...collabs.map(c => ({ user_id: c.collaborator_id, percentage: Number(c.split_percentage) }))
+      ].filter(s => s.percentage > 0)
+
+      // 2. Fetch primary producer settings for Platform Fee
       const { data: pSettings } = await supabaseAdmin
         .from('producer_settings')
         .select('subscription_tier')
@@ -83,54 +99,53 @@ export async function fulfillOrder({
 
       const itemPriceUsd = Number(item.price_usd ?? item.price ?? 0)
       const itemAmountInCheckoutCurrency = itemPriceUsd * conversionRate
-      const producerPayout = itemAmountInCheckoutCurrency * (1 - platformCutPercentage)
+      const totalProducerPayout = itemAmountInCheckoutCurrency * (1 - platformCutPercentage)
 
-      const { data: wallet } = await supabaseAdmin
-        .from('wallets')
-        .select('id')
-        .eq('user_id', item.producer_id)
-        .single()
-
-      let walletId = wallet?.id
-      if (!walletId) {
-        const { data: createdWallet } = await supabaseAdmin
+      // 3. Process payouts for each split
+      for (const split of splits) {
+        const splitPayout = totalProducerPayout * (split.percentage / 100)
+        
+        const { data: wallet } = await supabaseAdmin
           .from('wallets')
-          .insert({ user_id: item.producer_id })
-          .select('id')
+          .select('producer_id')
+          .eq('producer_id', split.user_id)
           .single()
-        walletId = createdWallet?.id
-      }
 
-      const maturityDate = new Date()
-      maturityDate.setHours(maturityDate.getHours() + 48)
+        if (!wallet) {
+          await supabaseAdmin
+            .from('wallets')
+            .insert({ producer_id: split.user_id })
+        }
 
-      const { error: ledgerError } = await supabaseAdmin
-        .from('ledger_transactions')
-        .insert({
-          wallet_id: walletId,
-          amount: producerPayout,
-          type: 'sale',
-          status: 'pending',
-          description: `Sale of ${item.title || 'Beat'} (${item.license_type})`,
-          reference_id: reference,
-          move_to_available_at: maturityDate.toISOString(),
-        })
+        const { error: ledgerError } = await supabaseAdmin
+          .from('ledger_transactions')
+          .insert({
+            producer_id: split.user_id,
+            amount: splitPayout,
+            type: 'SALE',
+            status: 'PENDING',
+            description: `Sale of ${item.title || 'Beat'} (${item.license_type}) - Split (${split.percentage}%)`,
+            reference_id: reference,
+          })
 
-      if (!ledgerError) {
-        await supabaseAdmin.rpc('increment_pending_balance', {
-          p_user_id: item.producer_id,
-          p_amount: producerPayout,
-        })
+        if (!ledgerError) {
+          // Increment pending balance manually via SQL if no pending_balance RPC is set up
+          // We will update the wallet directly
+          const { data: currentWallet } = await supabaseAdmin.from('wallets').select('pending_balance').eq('producer_id', split.user_id).single()
+          if (currentWallet) {
+            await supabaseAdmin.from('wallets').update({ pending_balance: Number(currentWallet.pending_balance) + splitPayout }).eq('producer_id', split.user_id)
+          }
 
-        // Notify producer of new sale
-        await supabaseAdmin.from('notifications').insert({
-          user_id: item.producer_id,
-          type: 'new_sale',
-          title: 'New Sale!',
-          body: `${buyerName} purchased "${item.title || 'your beat'}" (${item.license_type} license)`,
-          link: '/dashboard/sales',
-          metadata: { beat_id: item.beat_id, license_type: item.license_type, amount: producerPayout },
-        })
+          // Notify producer of new sale
+          await supabaseAdmin.from('notifications').insert({
+            user_id: split.user_id,
+            type: 'new_sale',
+            title: split.percentage === 100 ? 'New Sale!' : 'New Sale (Collab Split)!',
+            body: `${buyerName} purchased "${item.title || 'a beat'}" (${item.license_type} license). Your split: ${split.percentage}%`,
+            link: '/dashboard/sales',
+            metadata: { beat_id: item.beat_id, license_type: item.license_type, amount: splitPayout },
+          })
+        }
       }
 
       // --- Exclusive Beat Lock ---
