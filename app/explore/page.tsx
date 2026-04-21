@@ -6,27 +6,30 @@ export const dynamic = 'force-dynamic'
 export default async function ExplorePage() {
   const supabase = createClient()
   
-  // 1. Fetch Auth User
-  const { data: { user } } = await supabase.auth.getUser()
+  // Fetch User and Beats in parallel
+  const [userRes, beatsRes] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('beats')
+      .select(`
+        id, title, cover_url, mp3_preview_url, price_mp3, 
+        price_wav, price_trackout, price_exclusive, is_exclusive_sold, is_free,
+        producer_id, genre, bpm, key, play_count, created_at,
+        users_profiles!beats_producer_id_fkey(
+          handle, 
+          display_name, 
+          avatar_url,
+          producer_settings(subscription_tier)
+        ),
+        favorites:favorites(count),
+        beat_comments(count)
+      `)
+      .eq('status', 'active')
+      .limit(40)
+  ])
 
-  // 2. Fetch Beats (Parallel-ish)
-  const beatsPromise = supabase
-    .from('beats')
-    .select(`
-      id, title, cover_url, mp3_preview_url, price_mp3, 
-      price_wav, price_trackout, price_exclusive, is_exclusive_sold, is_free,
-      producer_id, genre, bpm, key, play_count,
-      users_profiles!beats_producer_id_fkey(
-        handle, 
-        display_name, 
-        avatar_url,
-        producer_settings(subscription_tier)
-      ),
-      favorites:favorites(count),
-      beat_comments(count)
-    `)
-    .eq('status', 'active')
-    .limit(40) // Fetch more then sort in memory to ensure algorithmic blending
+  const user = userRes.data.user
+  let { data: rawBeats } = beatsRes
 
   // 3. Fetch User State if logged in
   let followingIds: string[] = []
@@ -42,7 +45,6 @@ export default async function ExplorePage() {
     if (favoritesRes.data) favoritedIds = favoritesRes.data.map(f => f.beat_id)
   }
 
-  let { data: rawBeats } = await beatsPromise
   let beats: any[] = []
 
   if (rawBeats) {

@@ -4,10 +4,15 @@ import GenreTabs from '@/components/home/GenreTabs'
 import TrustRibbon from '@/components/home/TrustRibbon'
 import CategoryGrid from '@/components/home/CategoryGrid'
 import ValuePropSplit from '@/components/home/ValuePropSplit'
-import HeroCarousel from '@/components/home/HeroCarousel'
 import Link from 'next/link'
 import Image from 'next/image'
 import { TrendingUp, Users, ArrowRight, Music } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+const HeroCarousel = dynamic(() => import('@/components/home/HeroCarousel'), { 
+  ssr: false, 
+  loading: () => <div className="w-full h-[300px] sm:h-[500px] bg-zinc-950 animate-pulse" />
+})
 
 export const revalidate = 120
 
