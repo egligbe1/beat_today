@@ -4,16 +4,11 @@ import { useState } from 'react'
 import { MessageCircle, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-
 import { cn } from '@/lib/utils'
+
 import { showToast } from '@/lib/utils/toast'
 
-interface ContactButtonProps {
-  producerId: string
-  className?: string
-}
-
-export default function ContactButton({ producerId, className }: ContactButtonProps) {
+export default function ContactButton({ producerId, className }: { producerId: string, className?: string }) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -46,7 +41,7 @@ export default function ContactButton({ producerId, className }: ContactButtonPr
       onClick={handleContact}
       disabled={loading}
       className={cn(
-        "flex items-center justify-center gap-2 px-6 h-11 rounded-xl font-bold transition-all active:scale-95 bg-bg-elevated border border-border-subtle text-text-primary hover:bg-bg-surface disabled:opacity-50",
+        "flex items-center gap-2 px-6 h-11 rounded-xl font-bold transition-all active:scale-95 bg-bg-elevated border border-border-subtle text-text-primary hover:bg-bg-surface disabled:opacity-50",
         className
       )}
     >

@@ -67,7 +67,7 @@ export default function FollowButton({ followingId, initialIsFollowing, classNam
       onClick={handleFollow}
       disabled={loading}
       className={cn(
-        "flex items-center justify-center gap-2 px-6 h-11 rounded-xl font-bold transition-all active:scale-95",
+        "flex items-center gap-2 px-6 h-11 rounded-xl font-bold transition-all active:scale-95",
         isFollowing 
             ? "bg-bg-elevated border border-border-subtle text-text-primary hover:bg-bg-surface" 
             : "bg-accent-gold text-black hover:bg-opacity-90 shadow-lg shadow-accent-gold/10",

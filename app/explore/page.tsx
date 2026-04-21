@@ -65,7 +65,7 @@ export default async function ExplorePage() {
   return (
     <div className="bg-black text-white h-[calc(100vh-64px)] overflow-hidden lg:h-screen lg:fixed lg:inset-0 lg:z-[110]">
       <VerticalFeed 
-        initialBeats={(beats as any) || []} 
+        initialBeats={beats || []} 
         initialFollowingIds={followingIds}
         initialFavoritedIds={favoritedIds}
       />
