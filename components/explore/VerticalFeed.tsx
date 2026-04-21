@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, MessageCircle, Share2, Play, Pause, ShoppingCart, ArrowLeft, Music, Plus, X, Send, Loader2, ChevronUp } from 'lucide-react'
 import Image from 'next/image'
@@ -203,33 +203,53 @@ function EnhancedTikTokItem({
   const { convertAndFormat } = useCurrency()
 
   useEffect(() => {
-    if (isActive) {
-      const audio = new Audio(beat.mp3_preview_url)
-      audio.loop = true
-      audioRef.current = audio
-      
-      const updateProgress = () => {
-        if (audio.duration) {
-          setProgress((audio.currentTime / audio.duration) * 100)
-        }
-      }
-      
-      audio.addEventListener('timeupdate', updateProgress)
-      audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false))
+    let audio: HTMLAudioElement | null = null
+    let playTimeout: NodeJS.Timeout
 
-      return () => {
-        audio.removeEventListener('timeupdate', updateProgress)
+    if (isActive) {
+      playTimeout = setTimeout(() => {
+        audio = new Audio(beat.mp3_preview_url)
+        audio.loop = true
+        audioRef.current = audio
+        
+        const updateProgress = () => {
+          if (audio && audio.duration) {
+            setProgress((audio.currentTime / audio.duration) * 100)
+          }
+        }
+        
+        audio.addEventListener('timeupdate', updateProgress)
+        
+        const startPlayback = async () => {
+          try {
+            if (audio) {
+              await audio.play()
+              setIsPlaying(true)
+            }
+          } catch (err) {
+            console.warn("Autoplay blocked:", err)
+            setIsPlaying(false)
+          }
+        }
+        startPlayback()
+      }, 50)
+    }
+
+    return () => {
+      if (playTimeout) clearTimeout(playTimeout)
+      if (audio) {
         audio.pause()
-        audioRef.current = null
-        setIsPlaying(false)
-        setProgress(0)
+        audio.src = ""
+        audio.load()
       }
-    } else {
       if (audioRef.current) {
         audioRef.current.pause()
-        setIsPlaying(false)
-        setProgress(0)
+        audioRef.current.src = ""
+        audioRef.current.load()
       }
+      audioRef.current = null
+      setIsPlaying(false)
+      setProgress(0)
     }
   }, [isActive, beat.mp3_preview_url])
 
@@ -330,170 +350,22 @@ function EnhancedTikTokItem({
              className="relative w-full max-w-[280px] sm:max-w-sm aspect-square flex items-center justify-center"
              style={{ transform: 'rotateX(8deg)' }}
            >
-              {/* Turntable Platter (The base underneath the vinyl) */}
-              <AnimatePresence>
-                {isPlaying && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="absolute inset-[-10%] z-10 rounded-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black shadow-[0_30px_70px_rgba(0,0,0,1)] border border-white/5"
-                  >
-                    {/* Metallic edge grooves */}
-                    <div className="absolute inset-1.5 rounded-full border-[3px] border-zinc-800/50 border-double" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* PAUSED: Square Cover */}
+              {/* FIDELITY PRUNING: Only render heavy turntable if active or nearly active */}
               <AnimatePresence mode="wait">
-                {!isPlaying && (
+                {isActive ? (
+                  <Turntable key="turntable" isPlaying={isPlaying} coverUrl={coverUrl} title={beat.title} index={index} bpm={beat.bpm} />
+                ) : (
                   <motion.div
                     key="cover"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.85 }}
-                    transition={{ duration: 0.5 }}
-                    className="absolute inset-0 rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,1)] border border-white/10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] border border-white/10"
                   >
                     <Image src={coverUrl} alt={beat.title} fill className="object-cover" priority={index === 0} />
                   </motion.div>
                 )}
               </AnimatePresence>
-
-              {/* PLAYING: Premium Vinyl */}
-              <AnimatePresence>
-                {isPlaying && (
-                  <motion.div
-                    key="vinyl"
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.7 }}
-                    transition={{ duration: 0.6 }}
-                    className="absolute inset-[-5%] z-20"
-                  >
-                    {/* Spinning Disc */}
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: rotationDuration, repeat: Infinity, ease: 'linear' }}
-                      className="w-full h-full"
-                    >
-                      <svg viewBox="0 0 400 400" className="w-full h-full drop-shadow-[0_0_80px_rgba(0,0,0,1)]">
-                        <defs>
-                          {/* Iridescent sweep — the rainbow light reflection on vinyl */}
-                          <linearGradient id={`iri-${index}`} x1="0" y1="y2" x2="1" y2="1">
-                            <stop offset="0%" stopColor="rgba(100,60,255,0.08)" />
-                            <stop offset="25%" stopColor="rgba(0,200,255,0.05)" />
-                            <stop offset="50%" stopColor="rgba(255,255,255,0.12)" />
-                            <stop offset="75%" stopColor="rgba(255,100,0,0.05)" />
-                            <stop offset="100%" stopColor="rgba(200,0,255,0.04)" />
-                          </linearGradient>
-                          {/* Top-left light source */}
-                          <radialGradient id={`lit-${index}`} cx="30%" cy="28%">
-                            <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
-                            <stop offset="50%" stopColor="rgba(255,255,255,0.03)" />
-                            <stop offset="100%" stopColor="rgba(0,0,0,0)" />
-                          </radialGradient>
-                          <clipPath id={`lbl-${index}`}>
-                            <circle cx="200" cy="200" r="58" />
-                          </clipPath>
-                        </defs>
-
-                        <circle cx="200" cy="200" r="199" fill="#050505" />
-                        <circle cx="200" cy="200" r="195" fill="#0a0a0a" />
-                        
-                        {Array.from({length: 25}, (_, i) => 190 - i * 4).map((r, i) => (
-                          <circle key={`o-${i}`} cx="200" cy="200" r={r} fill="none"
-                            stroke={i % 3 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)'}
-                            strokeWidth={i % 5 === 0 ? '0.9' : '0.4'} />
-                        ))}
-                        
-                        <circle cx="200" cy="200" r="68" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.4" />
-                        
-                        <circle cx="200" cy="200" r="195" fill={`url(#iri-${index})`} />
-                        <circle cx="200" cy="200" r="195" fill={`url(#lit-${index})`} />
-                        
-                        <circle cx="200" cy="200" r="60" fill="#151515" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-                        <g clipPath={`url(#lbl-${index})`}>
-                          <image href={coverUrl} x="142" y="142" width="116" height="116" preserveAspectRatio="xMidYMid slice" />
-                        </g>
-                        
-                        <circle cx="200" cy="200" r="58" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
-                        
-                        <circle cx="200" cy="200" r="52" fill="none" stroke="rgba(0,0,0,0.5)" strokeWidth="10" />
-                        <text textAnchor="middle" x="200" y="156" fill="rgba(255,255,255,0.8)" fontSize="6" fontWeight="900" letterSpacing="4" fontFamily="system-ui">
-                          {beat.title.toUpperCase().slice(0, 20)}
-                        </text>
-                        
-                        <circle cx="200" cy="200" r="7" fill="#080808" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-                        <circle cx="200" cy="200" r="1.5" fill="#222" />
-                      </svg>
-                    </motion.div>
-
-                    {/* Tonearm */}
-                    <div className="absolute -top-[6%] -right-[6%] w-[45%] h-[60%] z-30 pointer-events-none origin-top-right">
-                      <motion.svg
-                        viewBox="0 0 180 240"
-                        className="w-full h-full"
-                        initial={{ rotate: 0 }}
-                        animate={{ rotate: 26 }}
-                        transition={{ type: 'spring', damping: 20, stiffness: 40 }}
-                        style={{ transformOrigin: '148px 24px' }}
-                      >
-                        <defs>
-                          <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-                            <stop offset="0%" stopColor="#777" />
-                            <stop offset="50%" stopColor="#333" />
-                            <stop offset="100%" stopColor="#111" />
-                          </linearGradient>
-                          <linearGradient id="pg" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#aaa" />
-                            <stop offset="30%" stopColor="#ddd" />
-                            <stop offset="70%" stopColor="#ccc" />
-                            <stop offset="100%" stopColor="#999" />
-                          </linearGradient>
-                        </defs>
-                        
-                        <circle cx="148" cy="24" r="22" fill="url(#bg)" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8" />
-                        <circle cx="148" cy="24" r="14" fill="#222" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
-                        
-                        <ellipse cx="166" cy="20" rx="11" ry="10" fill="#2a2a2a" stroke="rgba(255,255,255,0.1)" strokeWidth="0.6" />
-                        
-                        <line x1="146" y1="32" x2="44" y2="195" stroke="url(#pg)" strokeWidth="3.5" strokeLinecap="round" />
-                        <line x1="147" y1="33" x2="45" y2="196" stroke="rgba(0,0,0,0.4)" strokeWidth="4.5" strokeLinecap="round" />
-                        
-                        <path d="M 30 193 L 56 193 L 58 209 L 28 209 Z" fill="#222" stroke="rgba(255,255,255,0.15)" strokeWidth="0.8" />
-                        
-                        <line x1="43" y1="208" x2="43" y2="218" stroke="#ccc" strokeWidth="1" />
-                        <circle cx="43" cy="219" r="1.5" fill="#FF5500" className="animate-pulse" />
-                      </motion.svg>
-                    </div>
-
-                    {/* Progress ring with glow */}
-                    <div className="absolute inset-[-4%] pointer-events-none">
-                      <svg viewBox="0 0 400 400" className="w-full h-full -rotate-90">
-                        <circle cx="200" cy="200" r="199" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1.5" />
-                        <circle
-                          cx="200" cy="200" r="199"
-                          fill="none" stroke="#FF5500" strokeWidth="6" strokeLinecap="round"
-                          strokeDasharray={`${2 * Math.PI * 199}`}
-                          strokeDashoffset={`${2 * Math.PI * 199 * (1 - progress / 100)}`}
-                          style={{ transition: 'stroke-dashoffset 0.3s linear', filter: 'blur(6px)' }}
-                          opacity="0.5"
-                        />
-                        <circle
-                          cx="200" cy="200" r="199"
-                          fill="none" stroke="#FF5500" strokeWidth="2.5" strokeLinecap="round"
-                          strokeDasharray={`${2 * Math.PI * 199}`}
-                          strokeDashoffset={`${2 * Math.PI * 199 * (1 - progress / 100)}`}
-                          style={{ transition: 'stroke-dashoffset 0.3s linear' }}
-                        />
-                      </svg>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
            </div>
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
@@ -677,10 +549,34 @@ function EnhancedTikTokItem({
         </div>
       </motion.div>
 
-      {/* Bottom Timeline */}
-      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/10 z-50">
-        <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: progress / 100 }} transition={{ ease: "linear" }} className="h-full bg-white origin-left shadow-[0_0_8px_white]" />
-      </div>
+       {/* Bottom Timeline (Seeking Enabled) - Only if active */}
+      {isActive && (
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-4 flex items-end cursor-pointer z-[70] group/seek"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!audioRef.current || !audioRef.current.duration) return
+            const rect = e.currentTarget.getBoundingClientRect()
+            const x = e.clientX - rect.left
+            const percentage = x / rect.width
+            audioRef.current.currentTime = percentage * audioRef.current.duration
+            setProgress(percentage * 100)
+          }}
+        >
+          <div className="w-full h-[2px] bg-white/10 relative">
+            <motion.div 
+              initial={{ scaleX: 0 }} 
+              animate={{ scaleX: progress / 100 }} 
+              transition={{ ease: "linear" }} 
+              className="h-full bg-[#FF2D55] origin-left shadow-[0_0_8px_#FF2D55]" 
+            />
+            <motion.div 
+              style={{ left: `${progress}%` }}
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover/seek:opacity-100 transition-opacity"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Comment Drawer */}
       <AnimatePresence>
@@ -799,3 +695,76 @@ function CommentDrawer({ beatId, onClose, onCommentAdded }: { beatId: string; on
     </>
   )
 }
+
+// Optimized Turntable Component (Fidelity Pruning)
+// Optimized Turntable Component (Fidelity Pruning)
+const Turntable = memo(({ isPlaying, coverUrl, title, bpm }: any) => {
+  const rotationDuration = bpm ? (240 / bpm) : 2
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      {/* Vinyl Disc Base */}
+      <AnimatePresence>
+        {isPlaying && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-[0%] z-10 rounded-full bg-zinc-900 shadow-[0_20px_50px_rgba(0,0,0,1)] border border-white/5"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: rotationDuration, repeat: Infinity, ease: 'linear' }}
+              className="w-full h-full relative"
+            >
+              <svg viewBox="0 0 400 400" className="w-full h-full">
+                <circle cx="200" cy="200" r="195" fill="#080808" />
+                {/* Simplified Grooves */}
+                {[180, 160, 140, 120, 100, 80].map((r) => (
+                  <circle key={r} cx="200" cy="200" r={r} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                ))}
+                {/* Center Label */}
+                <circle cx="200" cy="200" r="60" fill="#151515" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                <clipPath id="centerLabel">
+                  <circle cx="200" cy="200" r="58" />
+                </clipPath>
+                <g clipPath="url(#centerLabel)">
+                  <image href={coverUrl} x="142" y="142" width="116" height="116" preserveAspectRatio="xMidYMid slice" />
+                </g>
+                <circle cx="200" cy="200" r="5" fill="#000" />
+              </svg>
+            </motion.div>
+
+            {/* Tonearm */}
+            <div className="absolute -top-[5%] -right-[5%] w-[40%] h-[60%] z-30 pointer-events-none origin-top-right">
+              <motion.svg
+                viewBox="0 0 180 240"
+                className="w-full h-full"
+                initial={{ rotate: 0 }}
+                animate={{ rotate: isPlaying ? 24 : 0 }}
+                transition={{ type: 'spring', damping: 20, stiffness: 45 }}
+                style={{ transformOrigin: '148px 24px' }}
+              >
+                <circle cx="148" cy="24" r="18" fill="#222" stroke="rgba(255,255,255,0.1)" />
+                <line x1="148" y1="24" x2="40" y2="180" stroke="#888" strokeWidth="4" />
+                <rect x="25" y="180" width="30" height="20" rx="4" fill="#222" stroke="rgba(255,255,255,0.1)" />
+              </motion.svg>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* PAUSED: Simple Square Cover */}
+      {!isPlaying && (
+        <motion.div
+          key="cover"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="absolute inset-2 rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+        >
+          <Image src={coverUrl} alt={title} fill className="object-cover" />
+        </motion.div>
+      )}
+    </div>
+  )
+})
