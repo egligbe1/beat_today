@@ -203,7 +203,7 @@ export default function VerticalFeed({
   return (
     <div 
       ref={containerRef} 
-      className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar bg-black relative"
+      className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth hide-scrollbar bg-black relative overscroll-y-contain"
     >
       <AnimatePresence>
         {showHint && (
@@ -225,11 +225,10 @@ export default function VerticalFeed({
         )}
       </AnimatePresence>
 
-      {initialBeats.map((beat, i) => (
         <div 
           key={beat.id} 
           data-index={i}
-          className="feed-item h-[100dvh] w-full snap-start overflow-hidden relative"
+          className="feed-item h-full w-full snap-start overflow-hidden relative"
         >
           <EnhancedTikTokItem 
             beat={beat} 
