@@ -61,30 +61,33 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Geo-IP Currency Localization ---
-  const countryCode = request.headers.get('x-vercel-ip-country') || request.geo?.country || 'US'
+  const countryCode = request.headers.get('x-vercel-ip-country') || request.geo?.country
   const urlCurrency = request.nextUrl.searchParams.get('currency')?.toUpperCase()
   
-  let detectedCurrency = 'USD'
-  switch (countryCode) {
-    case 'NG': detectedCurrency = 'NGN'; break
-    case 'GH': detectedCurrency = 'GHS'; break
-    case 'ZA': detectedCurrency = 'ZAR'; break
-    case 'KE': detectedCurrency = 'KES'; break
-    case 'GB': detectedCurrency = 'GBP'; break
-    case 'DE': case 'FR': case 'IT': case 'ES': case 'NL': case 'BE': case 'IE':
-      detectedCurrency = 'EUR'
-      break
-    default: detectedCurrency = 'USD'; break
+  let detectedCurrency: string | null = null
+  if (countryCode) {
+    switch (countryCode) {
+      case 'NG': detectedCurrency = 'NGN'; break
+      case 'GH': detectedCurrency = 'GHS'; break
+      case 'ZA': detectedCurrency = 'ZAR'; break
+      case 'KE': detectedCurrency = 'KES'; break
+      case 'GB': detectedCurrency = 'GBP'; break
+      case 'DE': case 'FR': case 'IT': case 'ES': case 'NL': case 'BE': case 'IE':
+        detectedCurrency = 'EUR'
+        break
+      default: detectedCurrency = 'USD'; break
+    }
   }
 
-  // Override if explicitly requested in URL
+  // Override if explicitly requested in URL or existing valid cookie
   const targetCurrency = urlCurrency || request.cookies.get('user-currency')?.value || detectedCurrency
   
-  // Set the cookie if it's missing or if a new override was requested
-  if ((!request.cookies.has('user-currency') || urlCurrency) && !request.nextUrl.pathname.startsWith('/_next')) {
+  // Set the cookie ONLY if we have a valid detection or an explicit override
+  // This allows CurrencyProvider.tsx (client-side) to perform its own ipapi.co lookup if middleware is unsure (like on localhost)
+  if (targetCurrency && (!request.cookies.has('user-currency') || urlCurrency) && !request.nextUrl.pathname.startsWith('/_next')) {
     response.cookies.set({
         name: 'user-currency',
-        value: targetCurrency,
+        value: targetCurrency as string,
         path: '/',
         maxAge: 60 * 60 * 24 * 30, // 30 days
         sameSite: 'lax',
@@ -101,8 +104,8 @@ export const config = {
      * - api/ (handled by route-level auth)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico, icon.png, og-image.jpg (public assets)
+     * - favicon.ico, icon.webp, og-image.jpg (public assets)
      */
-    '/((?!api/|_next/static|_next/image|favicon.ico|icon.png|og-image.jpg).*)',
+    '/((?!api/|_next/static|_next/image|favicon.ico|icon.webp|og-image.jpg).*)',
   ],
 }

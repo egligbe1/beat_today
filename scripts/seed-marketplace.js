@@ -12,14 +12,14 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 const BEAT_DATA = [
-  { title: 'LAGOS NIGHTS', genre: 'Afrobeats', bpm: 105, price: 29.99, cover: '/hero-studio.png' },
-  { title: 'SOWETO SUNSET', genre: 'Amapiano', bpm: 112, price: 34.99, cover: '/genre-rnb.png' },
-  { title: 'ACCRA DRILL', genre: 'Afro-drill', bpm: 140, price: 29.99, cover: '/genre-drill.png' },
-  { title: 'PALM WINE', genre: 'Highlife', bpm: 98, price: 24.99, cover: '/genre-hiphop.png' },
-  { title: 'ODOGWU', genre: 'Afrobeats', bpm: 100, price: 19.99, cover: '/genre-trap.png' },
-  { title: 'LOG DRUM KING', genre: 'Amapiano', bpm: 113, price: 39.99, cover: '/cta-artist.png' },
-  { title: 'KUMASI STREETS', genre: 'Afro-drill', bpm: 144, price: 29.99, cover: '/genre-drill.png' },
-  { title: 'FELA VIBES', genre: 'Afrobeats', bpm: 110, price: 19.99, cover: '/cta-producer.png' },
+  { title: 'LAGOS NIGHTS', genre: 'Afrobeats', bpm: 105, price: 29.99, cover: '/hero-studio.webp' },
+  { title: 'SOWETO SUNSET', genre: 'Amapiano', bpm: 112, price: 34.99, cover: '/genre-rnb.webp' },
+  { title: 'ACCRA DRILL', genre: 'Afro-drill', bpm: 140, price: 29.99, cover: '/genre-drill.webp' },
+  { title: 'PALM WINE', genre: 'Highlife', bpm: 98, price: 24.99, cover: '/genre-hiphop.webp' },
+  { title: 'ODOGWU', genre: 'Afrobeats', bpm: 100, price: 19.99, cover: '/genre-trap.webp' },
+  { title: 'LOG DRUM KING', genre: 'Amapiano', bpm: 113, price: 39.99, cover: '/cta-artist.webp' },
+  { title: 'KUMASI STREETS', genre: 'Afro-drill', bpm: 144, price: 29.99, cover: '/genre-drill.webp' },
+  { title: 'FELA VIBES', genre: 'Afrobeats', bpm: 110, price: 19.99, cover: '/cta-producer.webp' },
 ]
 
 async function seedMarketplace() {
