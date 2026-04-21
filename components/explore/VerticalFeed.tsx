@@ -457,7 +457,7 @@ function EnhancedTikTokItem({
       </div>
 
       {/* Sidebar Actions (TikTok Style) */}
-      <div className="absolute top-[35%] bottom-[160px] right-2 sm:right-4 flex flex-col justify-end items-center gap-5 sm:gap-7 z-[60] pb-[env(safe-area-inset-bottom)]">
+      <div className="absolute bottom-[20%] right-3 sm:right-6 flex flex-col items-center gap-6 sm:gap-8 z-[60] pb-safe">
         
         {/* Profile Action */}
         <div className="relative group">
@@ -481,10 +481,10 @@ function EnhancedTikTokItem({
           onClick={(e) => { e.stopPropagation(); handleLike() }} 
           className="flex flex-col items-center group"
         >
-          <div className="p-1 transition-all group-hover:scale-125 group-hover:drop-shadow-[0_0_15px_rgba(255,45,85,0.5)]">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center transition-all group-hover:scale-125">
             <Heart className={`w-8 h-8 sm:w-10 sm:h-10 drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)] transition-colors ${isLiked ? 'text-[#FF2D55] fill-current' : 'text-white'}`} />
           </div>
-          <span className="text-xs font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,1)] -mt-1 tracking-wider">{likeCount.toLocaleString()}</span>
+          <span className="text-[10px] sm:text-xs font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,1)] uppercase tracking-widest">{likeCount.toLocaleString()}</span>
         </button>
 
         {/* Comment Action */}
@@ -499,10 +499,10 @@ function EnhancedTikTokItem({
           }} 
           className="flex flex-col items-center group"
         >
-          <div className="p-1 transition-all group-hover:scale-125">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center transition-all group-hover:scale-125">
              <MessageCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)]" />
           </div>
-          <span className="text-xs font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,1)] -mt-1 tracking-wider">{commentCount.toLocaleString()}</span>
+          <span className="text-[10px] sm:text-xs font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,1)] uppercase tracking-widest">{commentCount.toLocaleString()}</span>
         </button>
 
         {/* Share Action */}
@@ -510,10 +510,10 @@ function EnhancedTikTokItem({
           onClick={handleShare} 
           className="flex flex-col items-center group"
         >
-          <div className="p-1 transition-all group-hover:scale-125">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center transition-all group-hover:scale-125">
              <Share2 className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow-[0_2px_15px_rgba(0,0,0,0.8)]" />
           </div>
-          <span className="text-[10px] font-black text-white uppercase tracking-tighter opacity-90 drop-shadow-md">Share</span>
+          <span className="text-[10px] sm:text-xs font-black text-white uppercase tracking-widest drop-shadow-md">Share</span>
         </button>
 
         {/* Commerce Action */}
@@ -563,7 +563,7 @@ function EnhancedTikTokItem({
         initial={{ x: -20, opacity: 0 }}
         whileInView={{ x: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="absolute bottom-[100px] left-4 right-20 z-40 pointer-events-none mb-[env(safe-area-inset-bottom)]"
+        className="absolute bottom-16 left-4 right-20 z-40 pointer-events-none mb-safe"
       >
         <div className="space-y-4 max-w-sm">
            <div className="space-y-1">
