@@ -42,8 +42,8 @@ interface FeedBeat {
     display_name: string
     avatar_url: string
   }
-  favorites: { count: number }[]
-  beat_comments: { count: number }[]
+  likes_count: number
+  comments_count: number
 }
 
 export default function VerticalFeed({ 
@@ -59,6 +59,88 @@ export default function VerticalFeed({
   const [showHint, setShowHint] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  
+  // Shared Audio Controller Logic
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [isGlobalPlaying, setIsGlobalPlaying] = useState(false)
+  const [globalProgress, setGlobalProgress] = useState(0)
+  const audioUnlocked = useRef(false)
+
+  // Initialize shared audio (Client side only)
+  useEffect(() => {
+    const audio = new Audio()
+    audio.loop = true
+    audioRef.current = audio
+
+    const handleTimeUpdate = () => {
+      if (audio.duration) {
+        setGlobalProgress((audio.currentTime / audio.duration) * 100)
+      }
+    }
+
+    audio.addEventListener('timeupdate', handleTimeUpdate)
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate)
+      audio.pause()
+      audio.src = ''
+    }
+  }, [])
+
+  // Sync Audio with activeIndex
+  useEffect(() => {
+    if (!audioRef.current || initialBeats.length === 0) return
+    
+    const activeBeat = initialBeats[activeIndex]
+    if (!activeBeat) return
+
+    const playNewBeat = async () => {
+      try {
+        const audio = audioRef.current!
+        // Swap source
+        if (audio.src !== activeBeat.mp3_preview_url) {
+          audio.src = activeBeat.mp3_preview_url
+          audio.load()
+        }
+        
+        if (audioUnlocked.current) {
+          await audio.play()
+          setIsGlobalPlaying(true)
+        }
+      } catch (err) {
+        console.warn("Shared autoplay blocked (waiting for interaction):", err)
+        setIsGlobalPlaying(false)
+      }
+    }
+
+    // Small delay to ensure swipe animation feels natural
+    const timeout = setTimeout(playNewBeat, 100)
+    return () => clearTimeout(timeout)
+  }, [activeIndex, initialBeats])
+
+  // Global Unlock & Interaction Handler
+  const handleInteraction = () => {
+    if (!audioRef.current || audioUnlocked.current) return
+    audioUnlocked.current = true
+    audioRef.current.play().then(() => {
+      setIsGlobalPlaying(true)
+    }).catch(() => {
+      // Still blocked
+    })
+  }
+
+  const toggleGlobalPlay = () => {
+    if (!audioRef.current) return
+    handleInteraction() // Unlock on first toggle if not already
+
+    if (isGlobalPlaying) {
+      audioRef.current.pause()
+      setIsGlobalPlaying(false)
+    } else {
+      audioRef.current.play()
+      setIsGlobalPlaying(true)
+    }
+  }
+
   const containerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -153,6 +235,10 @@ export default function VerticalFeed({
             beat={beat} 
             index={i} 
             isActive={activeIndex === i} 
+            isGlobalPlaying={isGlobalPlaying}
+            globalProgress={globalProgress}
+            onTogglePlay={toggleGlobalPlay}
+            audioRef={audioRef}
             initialFollowing={initialFollowingIds.includes(beat.producer_id)}
             initialFavorited={initialFavoritedIds.includes(beat.id)}
             user={user}
@@ -184,6 +270,10 @@ function EnhancedTikTokItem({
   beat, 
   index, 
   isActive, 
+  isGlobalPlaying,
+  globalProgress,
+  onTogglePlay,
+  audioRef,
   initialFollowing, 
   initialFavorited,
   user,
@@ -192,74 +282,27 @@ function EnhancedTikTokItem({
   beat: FeedBeat; 
   index: number; 
   isActive: boolean;
+  isGlobalPlaying: boolean;
+  globalProgress: number;
+  onTogglePlay: () => void;
+  audioRef: React.MutableRefObject<HTMLAudioElement | null>;
   initialFollowing: boolean;
   initialFavorited: boolean;
   user: any;
   onAuthRequired: () => void;
 }) {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [progress, setProgress] = useState(0)
   const [isLiked, setIsLiked] = useState(initialFavorited)
   const [isFollowing, setIsFollowing] = useState(initialFollowing)
-  const [likeCount, setLikeCount] = useState(beat.favorites?.[0]?.count || 0)
-  const [commentCount, setCommentCount] = useState(beat.beat_comments?.[0]?.count || 0)
+  const [likeCount, setLikeCount] = useState(beat.likes_count || 0)
+  const [commentCount, setCommentCount] = useState(beat.comments_count || 0)
   const [showHeart, setShowHeart] = useState(false)
   const [showComments, setShowComments] = useState(false)
   
-  const audioRef = useRef<HTMLAudioElement | null>(null)
   const lastTap = useRef<number>(0)
   const { convertAndFormat } = useCurrency()
 
-  useEffect(() => {
-    let audio: HTMLAudioElement | null = null
-    let playTimeout: NodeJS.Timeout
-
-    if (isActive) {
-      playTimeout = setTimeout(() => {
-        audio = new Audio(beat.mp3_preview_url)
-        audio.loop = true
-        audioRef.current = audio
-        
-        const updateProgress = () => {
-          if (audio && audio.duration) {
-            setProgress((audio.currentTime / audio.duration) * 100)
-          }
-        }
-        
-        audio.addEventListener('timeupdate', updateProgress)
-        
-        const startPlayback = async () => {
-          try {
-            if (audio) {
-              await audio.play()
-              setIsPlaying(true)
-            }
-          } catch (err) {
-            console.warn("Autoplay blocked:", err)
-            setIsPlaying(false)
-          }
-        }
-        startPlayback()
-      }, 50)
-    }
-
-    return () => {
-      if (playTimeout) clearTimeout(playTimeout)
-      if (audio) {
-        audio.pause()
-        audio.src = ""
-        audio.load()
-      }
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current.src = ""
-        audioRef.current.load()
-      }
-      audioRef.current = null
-      setIsPlaying(false)
-      setProgress(0)
-    }
-  }, [isActive, beat.mp3_preview_url])
+  const isActuallyPlaying = isActive && isGlobalPlaying
+  const currentProgress = isActive ? globalProgress : 0
 
   const togglePlay = () => {
     const now = Date.now()
@@ -268,15 +311,7 @@ function EnhancedTikTokItem({
       return
     }
     lastTap.current = now
-
-    if (!audioRef.current) return
-    if (isPlaying) {
-      audioRef.current.pause()
-      setIsPlaying(false)
-    } else {
-      audioRef.current.play()
-      setIsPlaying(true)
-    }
+    onTogglePlay()
   }
 
   const handleLike = async () => {
@@ -361,7 +396,7 @@ function EnhancedTikTokItem({
               {/* FIDELITY PRUNING: Only render heavy turntable if active or nearly active */}
               <AnimatePresence mode="wait">
                 {isActive ? (
-                  <Turntable key="turntable" isPlaying={isPlaying} coverUrl={coverUrl} title={beat.title} index={index} bpm={beat.bpm} />
+                  <Turntable key="turntable" isPlaying={isActuallyPlaying} coverUrl={coverUrl} title={beat.title} index={index} bpm={beat.bpm} />
                 ) : (
                   <motion.div
                     key="cover"
@@ -406,7 +441,7 @@ function EnhancedTikTokItem({
         </AnimatePresence>
 
         <AnimatePresence>
-          {!isPlaying && !showHeart && (
+          {!isActuallyPlaying && !showHeart && (
              <motion.div 
                initial={{ opacity: 0, scale: 0.8 }}
                animate={{ opacity: 1, scale: 1 }}
@@ -514,7 +549,7 @@ function EnhancedTikTokItem({
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-zinc-800 border border-white/20 z-10 shadow-inner" />
           </div>
 
-          {isPlaying && (
+          {isActuallyPlaying && (
             <div className="absolute -top-1 -right-1 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF2D55] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-4 w-4 bg-[#FF2D55]"></span>
@@ -568,18 +603,17 @@ function EnhancedTikTokItem({
             const x = e.clientX - rect.left
             const percentage = x / rect.width
             audioRef.current.currentTime = percentage * audioRef.current.duration
-            setProgress(percentage * 100)
           }}
         >
           <div className="w-full h-[2px] bg-white/10 relative">
             <motion.div 
               initial={{ scaleX: 0 }} 
-              animate={{ scaleX: progress / 100 }} 
+              animate={{ scaleX: currentProgress / 100 }} 
               transition={{ ease: "linear" }} 
               className="h-full bg-[#FF2D55] origin-left shadow-[0_0_8px_#FF2D55]" 
             />
             <motion.div 
-              style={{ left: `${progress}%` }}
+              style={{ left: `${currentProgress}%` }}
               className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover/seek:opacity-100 transition-opacity"
             />
           </div>
