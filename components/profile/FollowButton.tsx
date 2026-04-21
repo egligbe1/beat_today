@@ -8,11 +8,12 @@ import { cn } from '@/lib/utils'
 interface FollowButtonProps {
   followingId: string
   initialIsFollowing: boolean
+  className?: string
 }
 
 import { showToast } from '@/lib/utils/toast'
 
-export default function FollowButton({ followingId, initialIsFollowing }: FollowButtonProps) {
+export default function FollowButton({ followingId, initialIsFollowing, className }: FollowButtonProps) {
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing)
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
@@ -66,10 +67,11 @@ export default function FollowButton({ followingId, initialIsFollowing }: Follow
       onClick={handleFollow}
       disabled={loading}
       className={cn(
-        "flex items-center gap-2 px-6 h-11 rounded-xl font-bold transition-all active:scale-95",
+        "flex items-center justify-center gap-2 px-6 h-11 rounded-xl font-bold transition-all active:scale-95",
         isFollowing 
             ? "bg-bg-elevated border border-border-subtle text-text-primary hover:bg-bg-surface" 
-            : "bg-accent-gold text-black hover:bg-opacity-90 shadow-lg shadow-accent-gold/10"
+            : "bg-accent-gold text-black hover:bg-opacity-90 shadow-lg shadow-accent-gold/10",
+        className
       )}
     >
       {loading ? (
