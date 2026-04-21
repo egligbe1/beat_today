@@ -225,6 +225,7 @@ export default function VerticalFeed({
         )}
       </AnimatePresence>
 
+      {initialBeats.map((beat, i) => (
         <div 
           key={beat.id} 
           data-index={i}
