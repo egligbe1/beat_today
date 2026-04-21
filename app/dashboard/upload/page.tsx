@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Upload, Lock, AlertCircle, CheckCircle2, Save, Loader2 } from 'lucide-react'
+import { Upload, Lock, AlertCircle, CheckCircle2, Save, Loader2, X } from 'lucide-react'
 import { getTierLimits } from '@/lib/tierLimits'
 import { convertToWebP } from '@/lib/utils/storageUtils'
 import { useAuth } from '@/components/providers/AuthProvider'
@@ -32,6 +32,8 @@ export default function UploadPage() {
   const searchParams = useSearchParams()
   const supabase = createClient()
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const [collaborators, setCollaborators] = useState<{ handle: string, percentage: string }[]>([])
 
   const [form, setForm] = useState({
     title: '',
@@ -237,6 +239,24 @@ export default function UploadPage() {
 
       if (dbError) throw dbError
 
+      // Process collaborators
+      if (collaborators.length > 0) {
+         const handles = collaborators.map(c => c.handle.replace('@', ''))
+         const { data: usersInfo } = await supabase.from('users_profiles').select('id, handle').in('handle', handles)
+         if (usersInfo) {
+           const splitsToInsert = collaborators.map(c => {
+             const u = usersInfo.find(u => u.handle === c.handle.replace('@', ''))
+             if (!u) return null
+             return { beat_id: beatId, collaborator_id: u.id, split_percentage: Number(c.percentage) }
+           }).filter(Boolean)
+           
+           if (splitsToInsert.length > 0) {
+             await supabase.from('beat_collaborators').delete().eq('beat_id', beatId) // clear existing drafts
+             await supabase.from('beat_collaborators').insert(splitsToInsert as any)
+           }
+         }
+      }
+
       if (storagePaths.mp3Preview) {
         await fetch('/api/audio/queue-watermark', {
           method: 'POST',
@@ -373,6 +393,37 @@ export default function UploadPage() {
               <input type="checkbox" name="is_free" checked={form.is_free} onChange={handleInputChange} className="sr-only peer" />
               <div className="w-11 h-6 bg-white/10 rounded-full peer peer-checked:bg-accent-orange transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5" />
             </label>
+          </div>
+
+          <div className="bg-bg-surface p-6 rounded-2xl border border-border-subtle space-y-4">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest text-[#00E676]">Collaborators & Splits</h2>
+              <p className="text-xs text-text-muted mt-1 w-full relative">Add co-producers. Primary producer receives the remaining percentage.</p>
+            </div>
+            <div className="space-y-3">
+              {collaborators.map((c, i) => (
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <input type="text" placeholder="@handle" value={c.handle} onChange={e => {
+                    const newC = [...collaborators]; newC[i].handle = e.target.value; setCollaborators(newC);
+                  }} className="flex-1 bg-bg-primary border border-border-subtle rounded-xl px-4 py-3 text-sm focus:border-accent-orange focus:outline-none transition-colors text-white" />
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-24 flex-shrink-0">
+                      <input type="number" placeholder="%" value={c.percentage} onChange={e => {
+                        const newC = [...collaborators]; newC[i].percentage = e.target.value; setCollaborators(newC);
+                      }} className="w-full bg-bg-primary border border-border-subtle rounded-xl px-4 py-3 text-sm focus:border-accent-orange focus:outline-none transition-colors text-white" />
+                    </div>
+                    
+                    <button type="button" onClick={() => setCollaborators(collaborators.filter((_, idx) => idx !== i))} className="p-3 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={() => setCollaborators([...collaborators, {handle: '', percentage: ''}])} className="w-full h-12 bg-white/5 hover:bg-white/10 text-text-muted hover:text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">
+                 + Add Collaborator
+              </button>
+            </div>
           </div>
 
           <div className={`bg-bg-surface p-6 rounded-2xl border border-border-subtle space-y-4 ${form.is_free ? 'opacity-40 pointer-events-none' : ''}`}>

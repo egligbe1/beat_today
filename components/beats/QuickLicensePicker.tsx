@@ -6,11 +6,14 @@ import { useCurrency } from '@/lib/providers/CurrencyProvider'
 import { useOwnedLicenses } from '@/lib/hooks/useOwnedLicenses'
 import Link from 'next/link'
 import { createPortal } from 'react-dom'
+import EmailGateModal from './EmailGateModal'
+import MakeOfferModal from './MakeOfferModal'
 
 interface Beat {
   id: string
   title: string
   producer_name: string
+  producer_id: string
   cover_url: string
   price_mp3: number
   price_wav?: number | null
@@ -39,6 +42,9 @@ export default function QuickLicensePicker({ beat }: Props) {
   const { convertAndFormat } = useCurrency()
   const { ownedLicenses, isOwned } = useOwnedLicenses(beat.id)
   const ref = useRef<HTMLDivElement>(null)
+
+  const [showEmailGate, setShowEmailGate] = useState(false)
+  const [showOfferModal, setShowOfferModal] = useState(false)
 
   // Detect mobile
   useEffect(() => {
@@ -128,6 +134,20 @@ export default function QuickLicensePicker({ beat }: Props) {
             </span>
           </button>
         ))}
+        {tiers.some(t => t.key === 'exclusive' && !t.locked && !t.owned) && (
+          <div className="px-5 pb-4 sm:px-4 sm:pb-3 w-full">
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                setShowOfferModal(true)
+                setOpen(false)
+              }}
+              className="w-full mt-2 py-2.5 rounded-xl border border-accent-gold/40 text-accent-gold hover:bg-accent-gold/10 text-xs font-bold transition-colors uppercase tracking-widest"
+            >
+              Make an Offer
+            </button>
+          </div>
+        )}
       </div>
 
       {ownedLicenses.length > 0 && (
@@ -147,11 +167,12 @@ export default function QuickLicensePicker({ beat }: Props) {
   if (beat.is_free) {
     const owned = isOwned('mp3')
     return (
-      <button
-        onClick={(e) => {
-          e.preventDefault()
-          if (!owned) handleSelect('mp3', 0)
-        }}
+      <>
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            if (!owned) setShowEmailGate(true)
+          }}
         disabled={added || owned}
         className={`h-9 px-3 rounded-full font-black text-xs flex items-center justify-center transition-all flex-shrink-0 border gap-1.5 ${added ? 'bg-green-500 text-white border-green-500' :
             owned ? 'bg-bg-elevated text-text-muted border-border-subtle cursor-not-allowed' :
@@ -160,6 +181,15 @@ export default function QuickLicensePicker({ beat }: Props) {
       >
         {added ? <><Check className="w-3.5 h-3.5" /> Added</> : owned ? 'OWNED' : 'FREE'}
       </button>
+        
+        <EmailGateModal
+          isOpen={showEmailGate}
+          onClose={() => setShowEmailGate(false)}
+          beatId={beat.id}
+          producerId={beat.producer_id || ''}
+          beatTitle={beat.title}
+        />
+      </>
     )
   }
 
@@ -201,6 +231,16 @@ export default function QuickLicensePicker({ beat }: Props) {
           </>
         )}
       </AnimatePresence>
+
+      <MakeOfferModal
+        isOpen={showOfferModal}
+        onClose={() => setShowOfferModal(false)}
+        beatId={beat.id}
+        producerId={beat.producer_id || ''}
+        beatTitle={beat.title}
+        licenseType="exclusive"
+        suggestedPrice={beat.price_exclusive || undefined}
+      />
     </div>
   )
 }

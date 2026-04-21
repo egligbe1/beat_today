@@ -22,6 +22,7 @@ interface BeatCardProps {
     is_free?: boolean
     cover_url: string
     mp3_preview_url: string | null
+    producer_id: string
     play_count?: number
     users_profiles: {
       handle: string
@@ -102,42 +103,48 @@ export default function BeatCard({ beat, priority }: BeatCardProps) {
       </div>
       
       {/* Metadata below artwork */}
-      <div className="px-1 flex flex-col">
-        <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
+      <div className="px-1 flex flex-col gap-1">
+        <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
                 <Link href={`/beats/${beat.id}`} className="block">
-                <h3 className="font-black text-sm sm:text-base text-white truncate hover:text-[#FF5500] transition-colors leading-tight">
+                <h3 className="font-black text-base sm:text-lg text-white truncate hover:text-[#FF5500] transition-colors leading-tight italic uppercase tracking-tighter">
                     {beat.title}
                 </h3>
                 </Link>
-                <Link href={`/@${beat.users_profiles.handle}`} className="text-xs sm:text-sm font-medium text-text-muted hover:text-white transition-colors truncate block mt-0.5">
+                <Link href={`/@${beat.users_profiles.handle}`} className="text-xs font-bold text-text-muted hover:text-white transition-colors truncate block mt-0.5 uppercase tracking-widest opacity-70">
                 {beat.users_profiles.display_name}
                 </Link>
             </div>
-            <QuickLicensePicker beat={{
-              id: beat.id,
-              title: beat.title,
-              producer_name: beat.users_profiles.display_name,
-              cover_url: beat.cover_url,
-              price_mp3: beat.price_mp3,
-              price_wav: beat.price_wav,
-              price_trackout: beat.price_trackout,
-              price_exclusive: beat.price_exclusive,
-              is_exclusive_sold: beat.is_exclusive_sold,
-              is_free: beat.is_free,
-            }} />
+            <div className="flex-shrink-0 pt-0.5">
+              <QuickLicensePicker beat={{
+                id: beat.id,
+                title: beat.title,
+                producer_name: beat.users_profiles.display_name,
+                cover_url: beat.cover_url,
+                price_mp3: beat.price_mp3,
+                price_wav: beat.price_wav,
+                price_trackout: beat.price_trackout,
+                price_exclusive: beat.price_exclusive,
+                is_exclusive_sold: beat.is_exclusive_sold,
+                is_free: beat.is_free,
+                producer_id: beat.producer_id,
+              }} />
+            </div>
         </div>
         
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[9px] font-black uppercase tracking-widest bg-white/5 px-2 py-1 rounded text-text-muted">
-                {beat.genre}
-            </span>
-            <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-orange shadow-[0_0_8px_#FF5500]" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#FF5500]">
+                    {beat.genre}
+                </span>
+            </div>
+            <span className="text-[10px] font-black text-text-muted uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded leading-none">
                 {beat.bpm} BPM
             </span>
             {typeof beat.play_count === 'number' && (
-              <span className="text-[10px] font-black text-text-primary uppercase tracking-widest bg-[#FF5500]/10 text-[#FFB000] px-2 py-1 rounded flex items-center gap-1">
-                  <Play className="w-3 h-3" /> {beat.play_count.toLocaleString()} plays
+              <span className="text-[10px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1 opacity-60">
+                  <Play className="w-3 h-3 fill-current" /> {beat.play_count.toLocaleString()}
               </span>
             )}
         </div>

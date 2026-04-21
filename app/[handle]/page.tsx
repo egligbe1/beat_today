@@ -119,8 +119,14 @@ export default async function UserProfilePage({ params }: { params: { handle: st
     }
     const producerRating = totalReviews > 0 ? avgRating.toFixed(1) : "5.0"
 
+    const { data: services } = await supabase
+      .from('producer_services')
+      .select('*')
+      .eq('producer_id', profile.id)
+      .eq('is_active', true)
+
     return renderProducerProfile({
-      profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing
+      profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services
     })
   } else {
     // ---- ARTIST VIEW LOGIC ----
@@ -144,61 +150,81 @@ export default async function UserProfilePage({ params }: { params: { handle: st
   }
 }
 
-function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing }: any) {
+function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services }: any) {
   return (
     <div className="min-h-screen bg-bg-primary">
       {/* Premium Header/Banner */}
-      <div className="relative h-[400px] border-b border-border-subtle bg-bg-surface overflow-hidden">
+      <div className="relative pt-24 pb-12 md:pt-40 md:pb-24 border-b border-border-subtle bg-bg-surface overflow-hidden">
         {/* Background Glows */}
         <div className="absolute top-0 right-0 w-[500px] h-full bg-accent-orange/5 blur-[120px] pointer-events-none" />
         <div className="absolute top-0 left-0 w-[500px] h-full bg-accent-gold/5 blur-[120px] pointer-events-none" />
         
-        <div className="max-w-7xl mx-auto px-4 h-full flex flex-col justify-end pb-12">
-          <div className="flex flex-col md:flex-row gap-8 items-end relative z-10">
+        <div className="max-w-7xl mx-auto px-4 relative z-10">
+          <div className="flex flex-col md:flex-row gap-8 items-center md:items-end text-center md:text-left">
             {/* Avatar */}
-            <div className="relative w-32 md:w-48 aspect-square rounded-3xl overflow-hidden border-4 border-bg-primary shadow-2xl group cursor-pointer bg-bg-elevated">
+            <div className="relative w-40 md:w-56 aspect-square rounded-[2rem] overflow-hidden border-[6px] border-bg-primary shadow-2xl group cursor-pointer bg-bg-elevated transition-transform hover:scale-[1.02]">
               {profile.avatar_url ? (
-                <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover group-hover:scale-110 transition-transform" />
+                <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
               ) : (
-                <Music2 className="w-16 h-16 text-text-muted m-auto absolute inset-0" />
+                <Music2 className="w-20 h-20 text-text-muted m-auto absolute inset-0" />
               )}
             </div>
 
             {/* Basic Info */}
-            <div className="flex-1 space-y-4">
-                <div className="flex items-center gap-2">
+            <div className="flex-1 space-y-5">
+                <div className="flex flex-col md:flex-row items-center gap-3">
                     {settings?.subscription_tier === 'pro' && (
-                        <span className="bg-gradient-to-r from-[#FFB000] to-[#FF5500] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_20px_rgba(255,176,0,0.3)]">
-                            <TrendingUp className="w-3 h-3" /> PRO Member
+                        <span className="bg-gradient-to-r from-[#FFB000] to-[#FF5500] text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-[0.2em] flex items-center gap-2 shadow-[0_0_30px_rgba(255,176,0,0.3)]">
+                            <TrendingUp className="w-3.5 h-3.5" /> PRO Producer
                         </span>
                     )}
-                    <span className="text-[#00E676] text-[10px] uppercase font-bold tracking-widest flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse"></span>
+                    <span className="text-[#00E676] text-[10px] uppercase font-black tracking-[0.2em] flex items-center gap-2 bg-[#00E676]/10 px-4 py-1.5 rounded-full border border-[#00E676]/20">
+                        <span className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse"></span>
                         Verified Authentic
                     </span>
                 </div>
-                <h1 className="text-4xl md:text-6xl font-black text-text-primary tracking-tight">
+
+                <h1 className="text-5xl md:text-8xl font-black text-white tracking-tighter italic uppercase leading-none drop-shadow-2xl">
                     {profile.display_name}
                 </h1>
-                <div className="flex flex-wrap items-center gap-6 text-sm text-text-muted font-bold">
-                    <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-accent-orange" /> {profile.country || 'Global'}</span>
-                    <span className="flex items-center gap-2"><Music className="w-4 h-4 text-[#FFB000]" /> {beatsCount || 0} Tracks</span>
-                    <span className="flex items-center gap-2"><Users className="w-4 h-4 text-[#FF5500]" /> {followersCount || 0} Followers</span>
+
+                <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 sm:gap-8">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Location</span>
+                        <span className="flex items-center gap-2 text-sm font-bold text-white"><MapPin className="w-4 h-4 text-accent-orange" /> {profile.country || 'Global'}</span>
+                    </div>
+                    <div className="w-px h-10 bg-white/5 hidden sm:block" />
+                    <div className="flex flex-col">
+                        <span className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Catalog</span>
+                        <span className="flex items-center gap-2 text-sm font-bold text-white"><Music className="w-4 h-4 text-[#FFB000]" /> {beatsCount || 0} Beats</span>
+                    </div>
+                    <div className="w-px h-10 bg-white/5 hidden sm:block" />
+                    <div className="flex flex-col">
+                        <span className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Community</span>
+                        <span className="flex items-center gap-2 text-sm font-bold text-white"><Users className="w-4 h-4 text-[#FF5500]" /> {followersCount || 0} Follows</span>
+                    </div>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
-                    <span className="inline-flex items-center gap-2 bg-bg-elevated px-3 py-2 rounded-full border border-border-subtle">
-                        <Star className="w-4 h-4 text-[#FFB000]" /> {producerRating} Artist Rating ({totalReviews})
-                    </span>
-                    <span className="inline-flex items-center gap-2 bg-bg-elevated px-3 py-2 rounded-full border border-border-subtle">
-                        <span className="font-bold text-white">{totalPlays.toLocaleString()}</span> Total Plays
-                    </span>
+
+                <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 pt-2">
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2.5 rounded-2xl flex items-center gap-3 shadow-xl">
+                        <div className="flex items-center gap-1.5">
+                            <Star className="w-4 h-4 text-[#FFB000] fill-current" />
+                            <span className="text-base font-black text-white leading-none">{producerRating}</span>
+                        </div>
+                        <span className="w-px h-4 bg-white/10" />
+                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Artist Rating ({totalReviews})</span>
+                    </div>
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2.5 rounded-2xl flex items-center gap-3 shadow-xl">
+                        <span className="text-base font-black text-white leading-none">{totalPlays.toLocaleString()}</span>
+                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest leading-none">Global Plays</span>
+                    </div>
                 </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3">
-                <FollowButton followingId={profile.id} initialIsFollowing={isFollowing} />
-                <ContactButton producerId={profile.id} />
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto pt-6 md:pt-0">
+                <FollowButton followingId={profile.id} initialIsFollowing={isFollowing} className="h-14 px-10 text-sm font-black uppercase tracking-widest rounded-2xl w-full sm:w-auto" />
+                <ContactButton producerId={profile.id} className="h-14 px-8 text-sm font-black uppercase tracking-widest rounded-2xl w-full sm:w-auto border-2 border-white/10 bg-white/5 backdrop-blur-xl hover:bg-white/10" />
             </div>
           </div>
         </div>
@@ -250,6 +276,7 @@ function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlay
             {/* Main Content: Interactive Tabs Container */}
             <ProfileTabsContainer 
                 beats={beats || []} 
+                services={services || []}
                 producer={profile} 
                 totalPlays={totalPlays}
                 totalReviews={totalReviews}
@@ -265,42 +292,44 @@ function renderArtistProfile({ profile, followersCount, isFollowing, favoritedBe
   return (
     <div className="min-h-screen bg-bg-primary">
       {/* Artist Header/Banner */}
-      <div className="relative h-[300px] border-b border-border-subtle bg-bg-surface overflow-hidden">
+      <div className="relative pt-24 pb-12 md:pt-32 md:pb-20 border-b border-border-subtle bg-bg-surface overflow-hidden">
         {/* Subtle Background Glow for Artists */}
         <div className="absolute inset-0 bg-gradient-to-r from-bg-primary to-transparent opacity-80 z-10" />
         <div className="absolute top-0 right-0 w-[500px] h-full bg-blue-500/5 blur-[120px] pointer-events-none" />
         <div className="absolute top-0 left-0 w-[500px] h-full bg-accent-orange/5 blur-[120px] pointer-events-none" />
         
-        <div className="max-w-7xl mx-auto px-4 h-full flex flex-col justify-end pb-8">
-          <div className="flex flex-col md:flex-row gap-8 items-end relative z-20">
+        <div className="max-w-7xl mx-auto px-4 relative z-20">
+          <div className="flex flex-col md:flex-row gap-8 items-center md:items-end text-center md:text-left">
             {/* Avatar */}
-            <div className="relative w-32 md:w-40 aspect-square rounded-full overflow-hidden border-4 border-bg-primary shadow-xl group cursor-pointer bg-bg-elevated">
+            <div className="relative w-40 md:w-48 aspect-square rounded-full overflow-hidden border-[6px] border-bg-primary shadow-2xl group cursor-pointer bg-bg-elevated transition-transform hover:scale-[1.02]">
               {profile.avatar_url ? (
-                <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover group-hover:scale-105 transition-transform" />
+                <Image src={profile.avatar_url} alt={profile.display_name} fill className="object-cover group-hover:scale-105 transition-transform duration-700" />
               ) : (
-                <Users className="w-16 h-16 text-text-muted m-auto absolute inset-0" />
+                <Users className="w-20 h-20 text-text-muted m-auto absolute inset-0" />
               )}
             </div>
 
             {/* Basic Info */}
-            <div className="flex-1 space-y-3 mb-2">
-                <div className="flex items-center gap-2">
-                    <span className="text-text-muted text-[10px] font-black uppercase tracking-widest bg-bg-elevated border border-border-subtle px-3 py-1 rounded-full">
+            <div className="flex-1 space-y-4 mb-2">
+                <div className="flex justify-center md:justify-start">
+                    <span className="text-text-muted text-[10px] font-black uppercase tracking-[0.2em] bg-white/5 border border-white/10 px-4 py-1.5 rounded-full">
                         Recording Artist
                     </span>
                 </div>
-                <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">
+                <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter italic uppercase leading-none drop-shadow-2xl">
                     {profile.display_name}
                 </h1>
-                <div className="flex flex-wrap items-center gap-6 text-sm text-text-muted font-bold">
+                <div className="flex flex-wrap justify-center md:justify-start items-center gap-6 sm:gap-8 text-sm text-text-muted font-bold">
                     <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-accent-orange" /> {profile.country || 'Global'}</span>
-                    <span className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-400" /> {followersCount || 0} Followers</span>
+                    <span className="flex items-center gap-2 bg-blue-500/10 px-4 py-1.5 rounded-full border border-blue-500/20 text-blue-400">
+                        <Users className="w-4 h-4" /> {followersCount || 0} Followers
+                    </span>
                 </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3 mb-2">
-                <FollowButton followingId={profile.id} initialIsFollowing={isFollowing} />
+            <div className="flex flex-col sm:flex-row items-center gap-3 mb-2 w-full md:w-auto">
+                <FollowButton followingId={profile.id} initialIsFollowing={isFollowing} className="h-14 px-10 text-sm font-black uppercase tracking-widest rounded-2xl w-full sm:w-auto" />
             </div>
           </div>
         </div>
