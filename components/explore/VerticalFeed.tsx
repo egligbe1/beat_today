@@ -457,7 +457,7 @@ function EnhancedTikTokItem({
       </div>
 
       {/* Sidebar Actions (TikTok Style) */}
-      <div className="absolute top-[35%] bottom-[160px] right-2 sm:right-4 flex flex-col justify-end items-center gap-5 sm:gap-7 z-[60] pb-[env(safe-area-inset-bottom)]">
+      <div className="absolute bottom-[20%] right-3 sm:right-6 flex flex-col items-center gap-6 sm:gap-8 z-[60] pb-safe">
         
         {/* Profile Action */}
         <div className="relative group">
@@ -563,7 +563,7 @@ function EnhancedTikTokItem({
         initial={{ x: -20, opacity: 0 }}
         whileInView={{ x: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="absolute bottom-[100px] left-4 right-20 z-40 pointer-events-none mb-[env(safe-area-inset-bottom)]"
+        className="absolute bottom-16 left-4 right-20 z-40 pointer-events-none mb-safe"
       >
         <div className="space-y-4 max-w-sm">
            <div className="space-y-1">
