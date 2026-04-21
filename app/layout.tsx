@@ -48,8 +48,8 @@ export const metadata: Metadata = {
     images: ['https://beattoday.com/og-image.jpg'],
   },
   icons: {
-    icon: '/icon.png',
-    apple: '/icon.png',
+    icon: '/icon.webp',
+    apple: '/icon.webp',
   },
 }
 

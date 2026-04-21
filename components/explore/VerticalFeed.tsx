@@ -136,16 +136,21 @@ export default function VerticalFeed({
       </AnimatePresence>
 
       {initialBeats.map((beat, i) => (
-        <EnhancedTikTokItem 
+        <div 
           key={beat.id} 
-          beat={beat} 
-          index={i} 
-          isActive={activeIndex === i} 
-          initialFollowing={initialFollowingIds.includes(beat.producer_id)}
-          initialFavorited={initialFavoritedIds.includes(beat.id)}
-          user={user}
-          onAuthRequired={() => setShowAuthModal(true)}
-        />
+          data-index={i}
+          className="feed-item h-[100dvh] w-full snap-start overflow-hidden relative"
+        >
+          <EnhancedTikTokItem 
+            beat={beat} 
+            index={i} 
+            isActive={activeIndex === i} 
+            initialFollowing={initialFollowingIds.includes(beat.producer_id)}
+            initialFavorited={initialFavoritedIds.includes(beat.id)}
+            user={user}
+            onAuthRequired={() => setShowAuthModal(true)}
+          />
+        </div>
       ))}
 
       <Modal
@@ -307,17 +312,18 @@ function EnhancedTikTokItem({
 
   const rotationDuration = beat.bpm ? (240 / beat.bpm) : 2
 
+  const coverUrl = beat.cover_url?.replace('.png', '.webp') || '/default-avatar.webp'
+
   return (
     <div 
-      data-index={index}
-      className="feed-item snap-start h-full w-full relative flex items-center justify-center overflow-hidden bg-black select-none"
+      className="h-full w-full relative flex items-center justify-center overflow-hidden bg-black select-none"
       style={{ perspective: '1200px' }}
     >
       {/* Background Layer */}
       <div className="absolute inset-0 z-0">
         <div 
           className="absolute inset-0 bg-cover bg-center brightness-[0.3] blur-3xl scale-110"
-          style={{ backgroundImage: `url(${beat.cover_url})` }}
+          style={{ backgroundImage: `url(${coverUrl})` }}
         />
         <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-16 md:p-24 overflow-hidden">
            <div 
@@ -350,7 +356,7 @@ function EnhancedTikTokItem({
                     transition={{ duration: 0.5 }}
                     className="absolute inset-0 rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,1)] border border-white/10"
                   >
-                    <Image src={beat.cover_url} alt={beat.title} fill className="object-cover" priority={index === 0} />
+                    <Image src={coverUrl} alt={beat.title} fill className="object-cover" priority={index === 0} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -409,7 +415,7 @@ function EnhancedTikTokItem({
                         
                         <circle cx="200" cy="200" r="60" fill="#151515" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
                         <g clipPath={`url(#lbl-${index})`}>
-                          <image href={beat.cover_url} x="142" y="142" width="116" height="116" preserveAspectRatio="xMidYMid slice" />
+                          <image href={coverUrl} x="142" y="142" width="116" height="116" preserveAspectRatio="xMidYMid slice" />
                         </g>
                         
                         <circle cx="200" cy="200" r="58" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
@@ -536,13 +542,13 @@ function EnhancedTikTokItem({
       </div>
 
       {/* Sidebar Actions (TikTok Style) */}
-      <div className="absolute bottom-[18%] sm:bottom-[15%] right-2 sm:right-4 flex flex-col items-center gap-5 sm:gap-7 z-[60]">
+      <div className="absolute top-[35%] bottom-[160px] right-2 sm:right-4 flex flex-col justify-end items-center gap-5 sm:gap-7 z-[60] pb-[env(safe-area-inset-bottom)]">
         
         {/* Profile Action */}
         <div className="relative group">
            <Link href={`/${beat.users_profiles.handle}`} className="block">
               <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-white shadow-[0_0_30px_rgba(0,0,0,0.6)] overflow-hidden transition-transform group-hover:rotate-6 active:scale-90">
-                 <img src={beat.users_profiles.avatar_url || '/default-avatar.png'} alt={beat.users_profiles.handle} className="w-full h-full object-cover" />
+                 <img src={beat.users_profiles.avatar_url || '/default-avatar.webp'} alt={`${beat.users_profiles.display_name} avatar`} className="w-full h-full object-cover" />
               </div>
            </Link>
            {!isFollowing && (
@@ -620,7 +626,7 @@ function EnhancedTikTokItem({
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-zinc-800 to-black p-[3px] shadow-2xl relative overflow-hidden transition-transform group-hover:scale-110 group-active:scale-95">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_40%,_rgba(255,255,255,0.05)_41%,_transparent_42%,_rgba(255,255,255,0.05)_43%,_transparent_44%)]" />
             <div className="w-full h-full rounded-full overflow-hidden border border-white/5 relative">
-               <img src={beat.cover_url} className="w-full h-full object-cover grayscale-[0.2]" alt="vinyl" />
+               <img src={coverUrl} className="w-full h-full object-cover grayscale-[0.2]" alt="vinyl" />
                <div className="absolute inset-0 bg-black/40" />
             </div>
             
@@ -642,7 +648,7 @@ function EnhancedTikTokItem({
         initial={{ x: -20, opacity: 0 }}
         whileInView={{ x: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="absolute bottom-8 left-4 right-20 z-40 pointer-events-none"
+        className="absolute bottom-[100px] left-4 right-20 z-40 pointer-events-none mb-[env(safe-area-inset-bottom)]"
       >
         <div className="space-y-4 max-w-sm">
            <div className="space-y-1">
@@ -761,7 +767,7 @@ function CommentDrawer({ beatId, onClose, onCommentAdded }: { beatId: string; on
              comments.map((comment) => (
                <div key={comment.id} className="flex gap-4">
                   <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
-                    <img src={comment.users_profiles.avatar_url || '/default-avatar.png'} alt="user" className="w-full h-full object-cover" />
+                    <img src={comment.users_profiles.avatar_url || '/default-avatar.webp'} alt={`${comment.users_profiles.handle} avatar`} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">

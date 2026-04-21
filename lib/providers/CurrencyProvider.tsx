@@ -86,9 +86,26 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           setDetected(true)
           return
         }
-      } catch { /* silently fall back to USD */ }
+      } catch (err) { 
+        console.warn("Geo-IP lookup failed, trying browser locale...", err)
+      }
 
-      // 4. Ultimate fallback — USD
+      // 4. Fallback 2: Browser Locale (e.g. en-GH)
+      try {
+        const locale = navigator.language
+        if (locale.includes('-')) {
+          const country = locale.split('-')[1].toUpperCase()
+          if (COUNTRY_CURRENCY[country]) {
+            const detected = COUNTRY_CURRENCY[country]
+            setCurrencyState(detected)
+            setCookie('user-currency', detected)
+            setDetected(true)
+            return
+          }
+        }
+      } catch { /* ignore */ }
+
+      // 5. Ultimate fallback — USD
       setCurrencyState('USD')
       setDetected(true)
     }
