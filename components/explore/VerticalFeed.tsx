@@ -600,5 +600,3 @@ function EnhancedTikTokItem({
   )
 }
 
-  )
-}
