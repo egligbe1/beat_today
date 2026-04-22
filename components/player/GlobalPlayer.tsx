@@ -56,7 +56,10 @@ export default function GlobalPlayer() {
       }
     })
 
-    return () => { wavesurfer.current?.destroy() }
+    return () => { 
+      setIsReady(false)
+      wavesurfer.current?.destroy() 
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentBeat])
 
@@ -98,6 +101,13 @@ export default function GlobalPlayer() {
       } else {
         wavesurfer.current.pause()
         if (playTimer.current) { clearTimeout(playTimer.current); playTimer.current = null }
+      }
+    }
+
+    return () => {
+      if (playTimer.current) {
+        clearTimeout(playTimer.current)
+        playTimer.current = null
       }
     }
   }, [isPlaying, isReady, currentBeat])
