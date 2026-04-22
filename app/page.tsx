@@ -10,11 +10,10 @@ import { TrendingUp, Users, ArrowRight, Music } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const HeroCarousel = dynamic(() => import('@/components/home/HeroCarousel'), { 
-  ssr: false, 
   loading: () => <div className="w-full h-[300px] sm:h-[500px] bg-zinc-950 animate-pulse" />
 })
 
-export const revalidate = 120
+export const revalidate = 0
 
 export default async function Home({ searchParams }: { searchParams: { genre?: string; q?: string } }) {
   const supabase = createClient()
@@ -83,7 +82,13 @@ export default async function Home({ searchParams }: { searchParams: { genre?: s
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-              {beats.map((beat: any) => <BeatCard key={beat.id} beat={beat} />)}
+              {beats.map((beat: any, i: number) => (
+                <BeatCard 
+                  key={beat.id} 
+                  beat={beat} 
+                  priority={i < 4} 
+                />
+              ))}
             </div>
           </section>
         ) : (

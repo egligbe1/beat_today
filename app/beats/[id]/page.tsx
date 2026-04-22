@@ -11,6 +11,8 @@ import ReviewsSection from '@/components/reviews/ReviewsSection'
 import { formatCurrency } from '@/lib/utils'
 import type { Metadata } from 'next'
 
+export const revalidate = 0
+
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const supabase = createClient()
   const { data: beat } = await supabase
@@ -86,7 +88,7 @@ export default async function BeatDetailPage({ params }: { params: { id: string 
             <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start">
               {/* Artwork */}
               <div className="relative w-full sm:w-64 md:w-72 aspect-square rounded-2xl overflow-hidden shadow-2xl border border-border-subtle bg-bg-elevated flex-shrink-0 mx-auto sm:mx-0 max-w-xs sm:max-w-none">
-                <TrackImage src={beat.cover_url} alt={beat.title} />
+                <TrackImage src={beat.cover_url} alt={beat.title} priority />
               </div>
 
               {/* Info */}
