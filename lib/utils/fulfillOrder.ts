@@ -19,6 +19,8 @@ export async function fulfillOrder({
   reference,
   buyerEmail: externalBuyerEmail,
   conversionRate = 1,
+  payoutRatio = 1,
+  promoCodeId = null,
 }: {
   orderId: string
   cartItems: Array<{
@@ -32,6 +34,10 @@ export async function fulfillOrder({
   reference: string
   buyerEmail?: string
   conversionRate?: number
+  // Fraction of full price actually collected (1 = no discount). Producer
+  // payouts are computed on the collected amount, not the pre-discount price.
+  payoutRatio?: number
+  promoCodeId?: string | null
 }) {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -98,24 +104,17 @@ export async function fulfillOrder({
       if (tier === 'PRO') platformCutPercentage = 0
 
       const itemPriceUsd = Number(item.price_usd ?? item.price ?? 0)
-      const itemAmountInCheckoutCurrency = itemPriceUsd * conversionRate
+      // Pay out on the amount actually collected (applies any order discount),
+      // converted to wallet currency, less the platform cut.
+      const itemAmountInCheckoutCurrency = itemPriceUsd * payoutRatio * conversionRate
       const totalProducerPayout = itemAmountInCheckoutCurrency * (1 - platformCutPercentage)
+
+      const round2 = (n: number) => Math.round(n * 100) / 100
 
       // 3. Process payouts for each split
       for (const split of splits) {
-        const splitPayout = totalProducerPayout * (split.percentage / 100)
-        
-        const { data: wallet } = await supabaseAdmin
-          .from('wallets')
-          .select('producer_id')
-          .eq('producer_id', split.user_id)
-          .single()
-
-        if (!wallet) {
-          await supabaseAdmin
-            .from('wallets')
-            .insert({ producer_id: split.user_id })
-        }
+        const splitPayout = round2(totalProducerPayout * (split.percentage / 100))
+        if (splitPayout <= 0) continue
 
         const { error: ledgerError } = await supabaseAdmin
           .from('ledger_transactions')
@@ -129,12 +128,12 @@ export async function fulfillOrder({
           })
 
         if (!ledgerError) {
-          // Increment pending balance manually via SQL if no pending_balance RPC is set up
-          // We will update the wallet directly
-          const { data: currentWallet } = await supabaseAdmin.from('wallets').select('pending_balance').eq('producer_id', split.user_id).single()
-          if (currentWallet) {
-            await supabaseAdmin.from('wallets').update({ pending_balance: Number(currentWallet.pending_balance) + splitPayout }).eq('producer_id', split.user_id)
-          }
+          // Atomic credit — also creates the wallet row if missing (upsert).
+          const { error: creditError } = await supabaseAdmin.rpc('credit_pending_balance', {
+            p_producer_id: split.user_id,
+            p_amount: splitPayout,
+          })
+          if (creditError) console.error('credit_pending_balance failed for', split.user_id, creditError)
 
           // Notify producer of new sale
           await supabaseAdmin.from('notifications').insert({
@@ -267,6 +266,15 @@ export async function fulfillOrder({
     } catch (itemError) {
       console.error('Error processing item in fulfillOrder:', itemError)
     }
+  }
+
+  // Count the promo redemption exactly once (this block runs once per order
+  // thanks to the atomic pending->completed status flip above).
+  if (promoCodeId) {
+    const { error: promoError } = await supabaseAdmin.rpc('increment_promo_usage', {
+      p_promo_id: promoCodeId,
+    })
+    if (promoError) console.error('increment_promo_usage failed for', promoCodeId, promoError)
   }
 
   return updatedOrder.id

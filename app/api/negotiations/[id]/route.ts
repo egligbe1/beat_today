@@ -1,5 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+
+const supabaseAdmin = createAdminClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 // PATCH /api/negotiations/[id] -> Update offer status (ACCEPT, DECLINE, COUNTER)
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
@@ -43,7 +49,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const isProducerActing = updatedOffer.producer_id === user.id
     const notifyUserId = isProducerActing ? updatedOffer.buyer_id : updatedOffer.producer_id
 
-    await supabase.from('notifications').insert({
+    // Cross-user notification — must go through the service role.
+    await supabaseAdmin.from('notifications').insert({
       user_id: notifyUserId,
       type: 'offer_update',
       title: `Offer ${status}`,
@@ -54,6 +61,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ offer: updatedOffer })
   } catch (error: any) {
     console.error('Error updating offer:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Could not update offer' }, { status: 500 })
   }
 }

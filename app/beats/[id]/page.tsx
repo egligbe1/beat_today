@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
+import { unstable_cache } from 'next/cache'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -11,15 +12,38 @@ import ReviewsSection from '@/components/reviews/ReviewsSection'
 import { formatCurrency } from '@/lib/utils'
 import type { Metadata } from 'next'
 
-export const revalidate = 0
+export const revalidate = 300
+
+// Public, non-personalized beat data — cached per id so repeat views (and the
+// metadata request) don't re-hit the DB. Buy/ownership UI is client-side and
+// stays live regardless of this cache.
+const getBeatData = (id: string) => unstable_cache(
+  async () => {
+    const supabase = createPublicClient()
+    const { data: beat } = await supabase
+      .from('beats')
+      .select('*, users_profiles!beats_producer_id_fkey(*)')
+      .eq('id', id)
+      .eq('status', 'active')
+      .single()
+
+    if (!beat) return { beat: null, relatedBeats: [] }
+
+    const { data: relatedBeats } = await supabase
+      .from('beats')
+      .select('*, users_profiles!beats_producer_id_fkey(handle, display_name)')
+      .eq('producer_id', beat.producer_id)
+      .neq('id', beat.id)
+      .limit(4)
+
+    return { beat, relatedBeats: relatedBeats || [] }
+  },
+  ['beat-detail', id],
+  { revalidate: 300, tags: [`beat-${id}`] }
+)()
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const supabase = createClient()
-  const { data: beat } = await supabase
-    .from('beats')
-    .select('title, genre, bpm, cover_url, users_profiles!beats_producer_id_fkey(display_name)')
-    .eq('id', params.id)
-    .single()
+  const { beat } = await getBeatData(params.id)
 
   if (!beat) return { title: 'Beat Not Found — BeatToday' }
 
@@ -36,23 +60,9 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 export default async function BeatDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createClient()
+  const { beat, relatedBeats } = await getBeatData(params.id)
 
-  const { data: beat, error } = await supabase
-    .from('beats')
-    .select('*, users_profiles!beats_producer_id_fkey(*)')
-    .eq('id', params.id)
-    .eq('status', 'active')
-    .single()
-
-  if (error || !beat) return notFound()
-
-  const { data: relatedBeats } = await supabase
-    .from('beats')
-    .select('*, users_profiles!beats_producer_id_fkey(handle, display_name)')
-    .eq('producer_id', beat.producer_id)
-    .neq('id', beat.id)
-    .limit(4)
+  if (!beat) return notFound()
 
   const popularityRating = Math.min(5, Math.max(1, Math.ceil(Math.log10((beat.play_count || 0) + 1))))
 

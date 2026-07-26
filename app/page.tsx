@@ -8,6 +8,16 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { TrendingUp, Users, ArrowRight, Music } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'BeatToday — Buy Beats & License Instrumentals',
+  description: 'Discover, stream, and license beats from independent producers worldwide. Instant delivery, clear licensing, and secure checkout.',
+  openGraph: {
+    title: 'BeatToday — Buy Beats & License Instrumentals',
+    description: 'Discover, stream, and license beats from independent producers worldwide.',
+  },
+}
 
 const HeroCarousel = dynamic(() => import('@/components/home/HeroCarousel'), { 
   loading: () => <div className="w-full h-[300px] sm:h-[500px] bg-zinc-950 animate-pulse" />
@@ -30,14 +40,14 @@ export default async function Home({ searchParams }: { searchParams: { genre?: s
     .from('users_profiles')
     .select('*, producer_settings!inner(subscription_tier)')
     .eq('role', 'producer')
-    .eq('producer_settings.subscription_tier', 'pro')
+    .eq('producer_settings.subscription_tier', 'PRO')
     .limit(6)
 
   const starterProducersQuery = supabase
     .from('users_profiles')
     .select('*, producer_settings!inner(subscription_tier)')
     .eq('role', 'producer')
-    .eq('producer_settings.subscription_tier', 'starter')
+    .eq('producer_settings.subscription_tier', 'STARTER')
     .limit(6)
 
   if (genreStr && genreStr !== 'All') beatsQuery.eq('genre', genreStr)
@@ -133,7 +143,7 @@ export default async function Home({ searchParams }: { searchParams: { genre?: s
                   <div>
                     <p className="font-black text-white group-hover:text-[#FFB000] transition-colors text-xs sm:text-sm uppercase tracking-tight truncate max-w-[80px] sm:max-w-[120px]">{producer.display_name}</p>
                     <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#FF5500] mt-0.5">
-                      {producer.producer_settings?.subscription_tier === 'pro' ? '⭐ PRO' : 'Featured'}
+                      {(producer.producer_settings?.subscription_tier || '').toUpperCase() === 'PRO' ? '⭐ PRO' : 'Featured'}
                     </p>
                   </div>
                 </Link>

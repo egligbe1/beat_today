@@ -44,11 +44,9 @@ export default function EditBeatPage() {
 
   const [files, setFiles] = useState<{
     cover: File | null
-    mp3Preview: File | null
     mp3Clean: File | null
-    wavFile: File | null
     stemsZip: File | null
-  }>({ cover: null, mp3Preview: null, mp3Clean: null, wavFile: null, stemsZip: null })
+  }>({ cover: null, mp3Clean: null, stemsZip: null })
 
   useEffect(() => {
     async function loadBeat() {
@@ -91,12 +89,7 @@ export default function EditBeatPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return
     const file = e.target.files[0]
-    if (e.target.name === 'mp3Preview') {
-      // Upload same file to both beat-previews (public→watermarked) and beat-files (private→clean delivery)
-      setFiles(prev => ({ ...prev, mp3Preview: file, mp3Clean: file }))
-    } else {
-      setFiles(prev => ({ ...prev, [e.target.name]: file }))
-    }
+    setFiles(prev => ({ ...prev, [e.target.name]: file }))
     if (e.target.name === 'cover') {
       setCoverPreview(URL.createObjectURL(file))
     }
@@ -114,12 +107,16 @@ export default function EditBeatPage() {
       const uploadResults: Record<string, string> = {}
       const storagePaths: Record<string, string> = {}
 
+      // Clean master may be MP3 or WAV — store it under its real extension.
+      const cleanIsWav = !!files.mp3Clean && (files.mp3Clean.type.includes('wav') || files.mp3Clean.name.toLowerCase().endsWith('.wav'))
+      const cleanExt = cleanIsWav ? 'wav' : 'mp3'
+
       // Upload only changed files
       const fileTasks = [
         { name: 'cover', bucket: 'beat-covers', path: `${user.id}/${beatId}-cover-${Date.now()}.webp`, public: true },
-        { name: 'mp3Preview', bucket: 'beat-previews', path: `${user.id}/${beatId}-preview-${Date.now()}.mp3`, public: true },
-        { name: 'mp3Clean', bucket: 'beat-files', path: `${user.id}/${beatId}-clean.mp3`, public: false },
-        { name: 'wavFile', bucket: 'beat-files', path: `${user.id}/${beatId}-main.wav`, public: false },
+        // Single clean master (private, MP3 or WAV). The tagged preview is
+        // regenerated from it below — never store the untagged beat publicly.
+        { name: 'mp3Clean', bucket: 'beat-files', path: `${user.id}/${beatId}-clean.${cleanExt}`, public: false },
         { name: 'stemsZip', bucket: 'beat-files', path: `${user.id}/${beatId}-stems.zip`, public: false },
       ]
 
@@ -170,9 +167,15 @@ export default function EditBeatPage() {
       }
 
       if (uploadResults.cover) updatePayload.cover_url = uploadResults.cover
-      if (uploadResults.mp3Preview) updatePayload.mp3_preview_url = uploadResults.mp3Preview
-      if (uploadResults.mp3Clean) updatePayload.file_mp3_url = uploadResults.mp3Clean
-      if (uploadResults.wavFile) updatePayload.file_wav_url = uploadResults.wavFile
+      // mp3_preview_url is owned by the watermark pipeline (queued below) — do
+      // not set it directly to an untagged upload. Store the clean master in the
+      // column matching its real format and clear the other so downloads resolve
+      // to the correct file.
+      if (uploadResults.mp3Clean) {
+        updatePayload.file_mp3_url = cleanIsWav ? null : uploadResults.mp3Clean
+        updatePayload.file_wav_url = cleanIsWav ? uploadResults.mp3Clean : null
+        updatePayload.watermark_status = 'pending'
+      }
       if (uploadResults.stemsZip) updatePayload.file_stems_url = uploadResults.stemsZip
 
       const { error: dbError } = await supabase
@@ -183,12 +186,12 @@ export default function EditBeatPage() {
 
       if (dbError) throw dbError
 
-      // Queue watermark if MP3 preview was replaced
-      if (storagePaths.mp3Preview) {
+      // Regenerate the tagged preview from the new clean master, if replaced.
+      if (storagePaths.mp3Clean) {
         fetch('/api/audio/queue-watermark', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ beat_id: beatId, storage_path: storagePaths.mp3Preview }),
+          body: JSON.stringify({ beat_id: beatId, storage_path: storagePaths.mp3Clean }),
         }).catch(() => {/* cron will pick it up */})
       }
 
@@ -373,8 +376,7 @@ export default function EditBeatPage() {
             <p className="text-xs text-text-muted">Leave empty to keep your existing files.</p>
 
             {[
-              { name: 'mp3Preview', label: 'MP3 Preview', accept: 'audio/mpeg' },
-              { name: 'wavFile', label: 'Main WAV File', accept: 'audio/wav' },
+              { name: 'mp3Clean', label: 'Your Beat — Clean Audio (MP3 or WAV, preview auto-generated)', accept: 'audio/mpeg,audio/wav,audio/x-wav' },
               { name: 'stemsZip', label: 'Stems ZIP', accept: '.zip' },
             ].map(f => (
               <div key={f.name}>

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
@@ -54,7 +55,7 @@ export default async function LibraryPage() {
                       <div className="flex items-start gap-4">
                         <div className="w-14 h-14 rounded-2xl bg-bg-primary overflow-hidden relative">
                           {item.beats?.cover_url ? (
-                            <img src={item.beats.cover_url} alt={item.beats.title} className="w-full h-full object-cover" />
+                            <Image src={item.beats.cover_url} alt={item.beats.title} fill sizes="56px" className="object-cover" />
                           ) : (
                             <div className="w-full h-full bg-white/5 flex items-center justify-center text-text-muted">Beat</div>
                           )}

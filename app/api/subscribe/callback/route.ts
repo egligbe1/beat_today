@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     const { error: updateError } = await supabaseAdmin
       .from('producer_settings')
       .update({
-        subscription_tier: tier.toLowerCase(),
+        subscription_tier: String(tier).toUpperCase(),
         subscription_expires_at: expiresAt.toISOString(),
         subscription_reference: reference,
       })

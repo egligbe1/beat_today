@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { X, Loader2, MessageCircle, Send } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -81,8 +82,8 @@ export default function CommentDrawer({ beatId, onClose, onCommentAdded }: Comme
            ) : (
              comments.map((comment) => (
                <div key={comment.id} className="flex gap-4">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
-                    <img src={comment.users_profiles.avatar_url || '/default-avatar.webp'} alt={`${comment.users_profiles.handle} avatar`} className="w-full h-full object-cover" />
+                  <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 border border-white/10 relative">
+                    <Image src={comment.users_profiles.avatar_url || '/default-avatar.webp'} alt={`${comment.users_profiles.handle} avatar`} fill sizes="40px" className="object-cover" />
                   </div>
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">

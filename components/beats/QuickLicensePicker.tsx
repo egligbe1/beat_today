@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useRef, useEffect } from 'react'
 import { ShoppingCart, Check, X, Lock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'

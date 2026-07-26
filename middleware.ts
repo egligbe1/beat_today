@@ -8,56 +8,61 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: CookieOptions) {
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
-    }
-  )
+  const pathname = request.nextUrl.pathname
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Only the dashboard (protection) and the auth pages (redirect-if-logged-in)
+  // need the user. `supabase.auth.getUser()` is a network round-trip to Supabase
+  // Auth — running it on every public page/navigation is the biggest source of
+  // per-request latency, so we skip it entirely unless the route requires it.
+  const needsAuth =
+    pathname.startsWith('/dashboard') ||
+    pathname === '/login' ||
+    pathname === '/signup'
 
-  // Protect dashboard routes
-  if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
+  if (needsAuth) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            response.cookies.set({ name, value, ...options })
+          },
+          remove(name: string, options: CookieOptions) {
+            response.cookies.set({ name, value: '', ...options })
+          },
+        },
+      }
+    )
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Protect dashboard routes
+    if (pathname.startsWith('/dashboard')) {
+      if (!user) {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+
+      // Only fetch the profile for dashboard routes to save DB calls elsewhere
+      const { data: profile } = await supabase
+        .from('users_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      const allowedRoles = ['producer', 'artist']
+      if (!profile?.role || (!allowedRoles.includes(profile.role) && pathname !== '/dashboard/unauthorized')) {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
     }
-    
-    // Only fetch profile for dashboard routes to save DB calls on public pages
-    const { data: profile } = await supabase
-      .from('users_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-      
-    const allowedRoles = ['producer', 'artist']
-    if (!profile?.role || (!allowedRoles.includes(profile.role) && request.nextUrl.pathname !== '/dashboard/unauthorized')) {
+
+    // Redirect authenticated users away from login/signup
+    if (user && (pathname === '/login' || pathname === '/signup')) {
       return NextResponse.redirect(new URL('/', request.url))
     }
-  }
-
-  // Redirect authenticated users away from login/signup
-  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/', request.url))
   }
 
   // --- Geo-IP Currency Localization ---

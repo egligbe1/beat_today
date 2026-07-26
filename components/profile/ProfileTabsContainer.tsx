@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import BeatCard from '@/components/beats/BeatCard'
 import { Music, CassetteTape, Disc, Mail, TrendingUp, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -45,7 +46,7 @@ export default function ProfileTabsContainer({ beats, producer, totalPlays, tota
             {services.map((svc) => (
               <div key={svc.id} className="bg-bg-surface border border-border-subtle rounded-3xl p-6 flex flex-col items-center text-center">
                  <div className="w-16 h-16 rounded-2xl bg-white/5 mb-4 overflow-hidden relative">
-                    {svc.cover_url ? <img src={svc.cover_url} className="object-cover w-full h-full" alt="service cover" /> : <CassetteTape className="w-8 h-8 text-text-muted m-auto absolute inset-0" />}
+                    {svc.cover_url ? <Image src={svc.cover_url} fill sizes="64px" className="object-cover" alt="service cover" /> : <CassetteTape className="w-8 h-8 text-text-muted m-auto absolute inset-0" />}
                  </div>
                  <h3 className="text-white font-bold mb-2">{svc.title}</h3>
                  <p className="text-text-muted text-xs mb-4 line-clamp-2">{svc.description}</p>

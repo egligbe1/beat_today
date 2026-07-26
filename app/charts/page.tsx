@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
+import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Flame, TrendingUp, Music, Play, ShoppingCart, Star, Crown } from 'lucide-react'
@@ -12,25 +13,48 @@ export const metadata: Metadata = {
 
 export const revalidate = 3600 // Revalidate every hour
 
+// Cache the (public, non-personalized) chart data across requests for an hour.
+// supabase-js issues uncached fetches, so without this every visit re-queries
+// the DB; unstable_cache serves cache hits with zero DB round-trips.
+const getChartsData = unstable_cache(
+  async () => {
+    const supabase = createPublicClient()
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    // These three are independent — run them in parallel instead of in series.
+    const [topByPlaysRes, recentSalesRes, risingBeatsRes] = await Promise.all([
+      supabase
+        .from('beats')
+        .select('*, users_profiles!beats_producer_id_fkey(handle, display_name, avatar_url)')
+        .eq('status', 'active')
+        .order('play_count', { ascending: false })
+        .limit(20),
+      supabase
+        .from('order_items')
+        .select('beat_id, price, beats(id, title, cover_url, genre, bpm, price_mp3, play_count, producer_id, users_profiles!beats_producer_id_fkey(handle, display_name))')
+        .gte('created_at', thirtyDaysAgo.toISOString()),
+      supabase
+        .from('beats')
+        .select('*, users_profiles!producer_id(handle, display_name, avatar_url)')
+        .eq('status', 'active')
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('play_count', { ascending: false })
+        .limit(8),
+    ])
+
+    return {
+      topByPlays: topByPlaysRes.data,
+      recentSales: recentSalesRes.data,
+      risingBeats: risingBeatsRes.data,
+    }
+  },
+  ['charts-data'],
+  { revalidate: 3600, tags: ['charts'] }
+)
+
 export default async function ChartsPage() {
-  const supabase = createClient()
-
-  // Top beats by play count (all time)
-  const { data: topByPlays } = await supabase
-    .from('beats')
-    .select('*, users_profiles!beats_producer_id_fkey(handle, display_name, avatar_url)')
-    .eq('status', 'active')
-    .order('play_count', { ascending: false })
-    .limit(20)
-
-  // Top beats by recent sales (last 30 days)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-  const { data: recentSales } = await supabase
-    .from('order_items')
-    .select('beat_id, price, beats(id, title, cover_url, genre, bpm, price_mp3, play_count, producer_id, users_profiles!beats_producer_id_fkey(handle, display_name))')
-    .gte('created_at', thirtyDaysAgo.toISOString())
+  const { topByPlays, recentSales, risingBeats } = await getChartsData()
 
   // Aggregate by beat
   const salesMap: Record<string, { beat: any; sales: number; revenue: number }> = {}
@@ -45,15 +69,6 @@ export default async function ChartsPage() {
   const topBySales = Object.values(salesMap)
     .sort((a, b) => b.sales - a.sales)
     .slice(0, 10)
-
-  // Rising beats: high recent plays but fewer overall plays (newest breakouts)
-  const { data: risingBeats } = await supabase
-    .from('beats')
-    .select('*, users_profiles!producer_id(handle, display_name, avatar_url)')
-    .eq('status', 'active')
-    .gte('created_at', thirtyDaysAgo.toISOString())
-    .order('play_count', { ascending: false })
-    .limit(8)
 
   return (
     <div className="min-h-screen bg-bg-primary">

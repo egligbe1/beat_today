@@ -38,8 +38,8 @@ export default function BeatPageActions({ beat }: BeatPageActionsProps) {
       if (!user) return
       setUserId(user.id)
       supabase
-        .from('beat_favorites')
-        .select('id')
+        .from('favorites')
+        .select('beat_id')
         .eq('user_id', user.id)
         .eq('beat_id', beat.id)
         .maybeSingle()
@@ -69,10 +69,10 @@ export default function BeatPageActions({ beat }: BeatPageActionsProps) {
     }
     setFavLoading(true)
     if (isFavorited) {
-      await supabase.from('beat_favorites').delete().eq('user_id', userId).eq('beat_id', beat.id)
+      await supabase.from('favorites').delete().eq('user_id', userId).eq('beat_id', beat.id)
       setIsFavorited(false)
     } else {
-      await supabase.from('beat_favorites').insert({ user_id: userId, beat_id: beat.id })
+      await supabase.from('favorites').insert({ user_id: userId, beat_id: beat.id })
       setIsFavorited(true)
     }
     setFavLoading(false)

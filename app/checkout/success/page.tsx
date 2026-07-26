@@ -92,9 +92,9 @@ export default async function CheckoutSuccessPage({
 
                                 {/* Download Links — go through secure /api/download to verify auth */}
                                 <div className="flex items-center gap-2">
-                                    {item.beats?.file_mp3_url && (
+                                    {(item.beats?.file_mp3_url || item.beats?.file_wav_url) && (
                                         <Link href={`/api/download?beat_id=${item.beats.id}&file=mp3&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
-                                            <Download className="w-4 h-4" /> MP3
+                                            <Download className="w-4 h-4" /> Download
                                         </Link>
                                     )}
                                     {['wav', 'trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_wav_url && (

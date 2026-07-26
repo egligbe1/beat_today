@@ -14,6 +14,7 @@ import QuickLicensePicker from '@/components/beats/QuickLicensePicker'
 import Modal from '@/components/ui/Modal'
 import { formatDistanceToNow } from 'date-fns'
 import dynamic from 'next/dynamic'
+import { showToast } from '@/lib/utils/toast'
 
 const Turntable = dynamic(() => import('./Turntable'), { 
   ssr: false,
@@ -149,9 +150,11 @@ export default function VerticalFeed({
   useEffect(() => {
     // Check onboarding hint
     const hasSeen = localStorage.getItem('explore_hint_seen')
+    let hintTimer: ReturnType<typeof setTimeout> | undefined
     if (!hasSeen) {
       setShowHint(true)
-      // Hide hint after 5 seconds or on scroll
+      // Auto-dismiss after 5 seconds (also dismissed on first scroll below)
+      hintTimer = setTimeout(() => setShowHint(false), 5000)
     }
 
     const observer = new IntersectionObserver(
@@ -173,7 +176,10 @@ export default function VerticalFeed({
     const elements = document.querySelectorAll('.feed-item')
     elements.forEach((el) => observer.observe(el))
 
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      if (hintTimer) clearTimeout(hintTimer)
+    }
   }, [initialBeats])
 
   useEffect(() => {
@@ -231,10 +237,11 @@ export default function VerticalFeed({
           data-index={i}
           className="feed-item h-full w-full snap-start overflow-hidden relative"
         >
-          <EnhancedTikTokItem 
-            beat={beat} 
-            index={i} 
-            isActive={activeIndex === i} 
+          <EnhancedTikTokItem
+            beat={beat}
+            index={i}
+            isActive={activeIndex === i}
+            nearActive={Math.abs(activeIndex - i) <= 1}
             isGlobalPlaying={isGlobalPlaying}
             globalProgress={globalProgress}
             onTogglePlay={toggleGlobalPlay}
@@ -266,22 +273,24 @@ export default function VerticalFeed({
   )
 }
 
-function EnhancedTikTokItem({ 
-  beat, 
-  index, 
-  isActive, 
+function EnhancedTikTokItem({
+  beat,
+  index,
+  isActive,
+  nearActive,
   isGlobalPlaying,
   globalProgress,
   onTogglePlay,
   audioRef,
-  initialFollowing, 
+  initialFollowing,
   initialFavorited,
   user,
   onAuthRequired
-}: { 
-  beat: FeedBeat; 
-  index: number; 
+}: {
+  beat: FeedBeat;
+  index: number;
   isActive: boolean;
+  nearActive: boolean;
   isGlobalPlaying: boolean;
   globalProgress: number;
   onTogglePlay: () => void;
@@ -366,7 +375,7 @@ function EnhancedTikTokItem({
         await navigator.share(shareData)
       } else {
         await navigator.clipboard.writeText(shareUrl)
-        alert('Link copied to clipboard!')
+        showToast.success('Link copied to clipboard!')
       }
     } catch (e) {
       console.error("Share error", e)
@@ -377,8 +386,24 @@ function EnhancedTikTokItem({
 
   const coverUrl = beat.cover_url?.replace('.png', '.webp') || '/default-avatar.webp'
 
+  // Off-screen items (more than one away from the active slide) render only a
+  // cheap blurred backdrop — no framer-motion trees, turntable, or overlays.
+  // The outer .feed-item container preserves full height so scroll-snap and the
+  // IntersectionObserver still work; ±1 items are fully mounted so nothing
+  // pops in late as the user swipes.
+  if (!nearActive) {
+    return (
+      <div className="h-full w-full relative overflow-hidden bg-black">
+        <div
+          className="absolute inset-0 bg-cover bg-center brightness-[0.3] blur-3xl scale-110"
+          style={{ backgroundImage: `url(${coverUrl})` }}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div 
+    <div
       className="h-full w-full relative flex items-center justify-center overflow-hidden bg-black select-none"
       style={{ perspective: '1200px' }}
     >

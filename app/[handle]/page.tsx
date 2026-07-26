@@ -56,23 +56,19 @@ export default async function UserProfilePage({ params }: { params: { handle: st
     return notFound()
   }
 
-  // Get current user and follow status
+  // getSession() reads the cookie locally (no network); run the follow-status
+  // check and the followers count together instead of in series.
   const { data: { session } } = await supabase.auth.getSession()
-  let isFollowing = false
-  if (session?.user) {
-    const { data: follow } = await supabase
-      .from('follows')
-      .select('*')
-      .eq('follower_id', session.user.id)
-      .eq('following_id', profile.id)
-      .maybeSingle()
-    isFollowing = !!follow
-  }
+  const viewerId = session?.user?.id
 
-  const { count: followersCount } = await supabase
-    .from('follows')
-    .select('*', { count: 'exact', head: true })
-    .eq('following_id', profile.id)
+  const [followRes, followersRes] = await Promise.all([
+    viewerId
+      ? supabase.from('follows').select('follower_id').eq('follower_id', viewerId).eq('following_id', profile.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
+  ])
+  const isFollowing = !!followRes.data
+  const followersCount = followersRes.count
 
   const isProducer = profile.role === 'producer'
 
@@ -91,12 +87,22 @@ export default async function UserProfilePage({ params }: { params: { handle: st
       settings = fallbackSettings
     }
 
-    const { data: beats } = await supabase
-      .from('beats')
-      .select('*, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
-      .eq('producer_id', profile.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
+    // beats and services are independent — fetch them together.
+    const [beatsRes, servicesRes] = await Promise.all([
+      supabase
+        .from('beats')
+        .select('*, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
+        .eq('producer_id', profile.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('producer_services')
+        .select('*')
+        .eq('producer_id', profile.id)
+        .eq('is_active', true),
+    ])
+    const beats = beatsRes.data
+    const services = servicesRes.data
 
     const beatsCount = beats?.length || 0
     const aggregatedPlays = beats?.reduce((sum, b) => sum + (b.play_count || 0), 0) || 0
@@ -119,19 +125,13 @@ export default async function UserProfilePage({ params }: { params: { handle: st
     }
     const producerRating = totalReviews > 0 ? avgRating.toFixed(1) : "5.0"
 
-    const { data: services } = await supabase
-      .from('producer_services')
-      .select('*')
-      .eq('producer_id', profile.id)
-      .eq('is_active', true)
-
     return renderProducerProfile({
       profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services
     })
   } else {
     // ---- ARTIST VIEW LOGIC ----
     const { data: favorites } = await supabase
-      .from('beat_favorites')
+      .from('favorites')
       .select(`
         beats (
           *,
@@ -173,7 +173,7 @@ function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlay
             {/* Basic Info */}
             <div className="flex-1 space-y-5">
                 <div className="flex flex-col md:flex-row items-center gap-3">
-                    {settings?.subscription_tier === 'pro' && (
+                    {(settings?.subscription_tier || '').toUpperCase() === 'PRO' && (
                         <span className="bg-gradient-to-r from-[#FFB000] to-[#FF5500] text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-[0.2em] flex items-center gap-2 shadow-[0_0_30px_rgba(255,176,0,0.3)]">
                             <TrendingUp className="w-3.5 h-3.5" /> PRO Producer
                         </span>

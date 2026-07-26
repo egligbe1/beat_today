@@ -89,20 +89,16 @@ export async function POST(req: Request) {
       recipientField = 'recipient_code'
     }
 
-    // Save recipient code to wallet
-    const { data: existingWallet } = await supabaseAdmin
+    // Save recipient code to wallet (wallets are keyed on producer_id).
+    // Upsert is atomic and avoids the check-then-write race.
+    const { error: saveError } = await supabaseAdmin
       .from('wallets')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
+      .upsert(
+        { producer_id: user.id, [recipientField]: recipient_code },
+        { onConflict: 'producer_id' }
+      )
 
-    const updatePayload = { [recipientField]: recipient_code }
-
-    if (existingWallet?.id) {
-      await supabaseAdmin.from('wallets').update(updatePayload).eq('user_id', user.id)
-    } else {
-      await supabaseAdmin.from('wallets').insert({ user_id: user.id, ...updatePayload })
-    }
+    if (saveError) throw saveError
 
     return NextResponse.json({ success: true, recipient_code })
   } catch (err: any) {
@@ -112,14 +108,9 @@ export async function POST(req: Request) {
 }
 
 async function upsertWallet(userId: string, recipientCode: string | null, mobileMmCode: string | null, supabase: any) {
-  const { data: existing } = await supabaseAdmin.from('wallets').select('id').eq('user_id', userId).single()
-  const payload: any = {}
+  const payload: any = { producer_id: userId }
   if (recipientCode !== null) payload.recipient_code = recipientCode
   if (mobileMmCode !== null) payload.mobile_money_recipient_code = mobileMmCode
 
-  if (existing?.id) {
-    await supabaseAdmin.from('wallets').update(payload).eq('user_id', userId)
-  } else {
-    await supabaseAdmin.from('wallets').insert({ user_id: userId, ...payload })
-  }
+  await supabaseAdmin.from('wallets').upsert(payload, { onConflict: 'producer_id' })
 }

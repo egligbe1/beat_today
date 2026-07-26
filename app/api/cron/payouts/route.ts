@@ -82,12 +82,14 @@ export async function POST(req: Request) {
         const paystackAmount = Math.round(localAmount * 100)
 
         // 3. Deduct balance safely via RPC *before* initializing Paystack transfer
-        const { data: deducted, error: deductError } = await supabaseAdmin.rpc('deduct_available_balance', {
+        // deduct_available_balance returns void and RAISEs on insufficient/locked
+        // funds, so a null `data` is success — only the error signals failure.
+        const { error: deductError } = await supabaseAdmin.rpc('deduct_available_balance', {
            p_producer_id: wallet.producer_id,
            p_amount: wallet.available_balance
         })
 
-        if (deductError || !deducted) {
+        if (deductError) {
            console.warn(`Insufficient or locked funds for producer ${wallet.producer_id}`)
            payoutResults.push({ producer_id: wallet.producer_id, status: 'skipped', reason: 'Insufficient funds during atomic deduction' })
            continue
@@ -116,22 +118,25 @@ export async function POST(req: Request) {
         if (data.status) {
           const transferCode = data.data?.transfer_code || data.data?.reference
 
-          await supabaseAdmin.from('payouts').insert({
+          const { error: payoutInsertError } = await supabaseAdmin.from('payouts').insert({
             producer_id: wallet.producer_id,
             amount: wallet.available_balance,
             currency: 'GHS',
-            status: 'processing',
+            status: 'PROCESSING',
+            reference: transferPayload.reference,
             paystack_transfer_code: transferCode,
           })
+          if (payoutInsertError) console.error('Payout record insert failed:', payoutInsertError)
 
-          await supabaseAdmin.from('ledger_transactions').insert({
+          const { error: ledgerInsertError } = await supabaseAdmin.from('ledger_transactions').insert({
             producer_id: wallet.producer_id,
             amount: -wallet.available_balance,
-            type: 'payout',
-            status: 'available',
+            type: 'PAYOUT',
+            status: 'AVAILABLE',
             description: `Payout to ${bankDetails.bank_name || 'bank'} ${bankDetails.account_number}`,
             reference_id: transferCode,
           })
+          if (ledgerInsertError) console.error('Payout ledger insert failed:', ledgerInsertError)
 
           // Notify producer (Notification uses user_id)
           await supabaseAdmin.from('notifications').insert({

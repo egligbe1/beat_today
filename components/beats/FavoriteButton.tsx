@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -22,41 +22,28 @@ export default function FavoriteButton({
 }: FavoriteButtonProps) {
   const [isFavorited, setIsFavorited] = useState(initialIsFavorited)
   const [loading, setLoading] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
   const supabase = createClient()
   const router = useRouter()
 
-  useEffect(() => {
-    async function getSession() {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUserId(session?.user?.id || null)
-      
-      if (session?.user?.id) {
-        // Check if actually favorited if initialIsFavorited not provided
-        const { data } = await supabase
-          .from('beat_favorites')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .eq('beat_id', beatId)
-          .single()
-        
-        if (data) setIsFavorited(true)
-      }
-    }
-    getSession()
-  }, [beatId, supabase])
+  // NOTE: intentionally no render-time auth/favorite query here. When many
+  // FavoriteButtons render in a grid, per-card getSession()+select calls
+  // create an N+1 storm. The initial state comes from the server-provided
+  // `initialIsFavorited` prop; the user is resolved lazily on first click.
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!userId) {
+    if (loading) return
+
+    // Resolve the current user only when the button is actually used.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
       showToast.error('Please login to favorite beats')
       router.push('/login')
       return
     }
-
-    if (loading) return
+    const userId = user.id
 
     setLoading(true)
     const nextState = !isFavorited
@@ -65,18 +52,18 @@ export default function FavoriteButton({
     try {
       if (nextState) {
         const { error } = await supabase
-          .from('beat_favorites')
+          .from('favorites')
           .insert({ user_id: userId, beat_id: beatId })
-        
+
         if (error) throw error
         showToast.success('Added to favorites')
       } else {
         const { error } = await supabase
-          .from('beat_favorites')
+          .from('favorites')
           .delete()
           .eq('user_id', userId)
           .eq('beat_id', beatId)
-        
+
         if (error) throw error
         showToast.success('Removed from favorites')
       }
