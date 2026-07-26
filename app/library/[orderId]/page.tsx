@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, FileText } from 'lucide-react'
-import DownloadButton from './DownloadButton'
+import DownloadButton from '@/components/library/DownloadButton'
 import LicenseModal from '@/components/library/LicenseModal'
 
 export default async function LibraryOrderPage({ params }: { params: { orderId: string } }) {
@@ -82,6 +82,7 @@ export default async function LibraryOrderPage({ params }: { params: { orderId: 
                             beatId={item.beats.id}
                             fileType="mp3"
                             label="Download MP3"
+                            className="w-full"
                           />
                         )}
 
@@ -92,6 +93,7 @@ export default async function LibraryOrderPage({ params }: { params: { orderId: 
                             beatId={item.beats.id}
                             fileType="wav"
                             label="Download WAV"
+                            className="w-full"
                           />
                         )}
 
@@ -102,6 +104,7 @@ export default async function LibraryOrderPage({ params }: { params: { orderId: 
                             beatId={item.beats.id}
                             fileType="stems"
                             label="Download Stems"
+                            className="w-full"
                           />
                         )}
                       </>

@@ -1,10 +1,11 @@
-import { CheckCircle2, Download, Music } from 'lucide-react'
+import { CheckCircle2, Music } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { formatCurrency } from '@/lib/utils'
 import LicenseModal from '@/components/library/LicenseModal'
+import DownloadButton from '@/components/library/DownloadButton'
 
 export default async function CheckoutSuccessPage({
   searchParams,
@@ -90,22 +91,17 @@ export default async function CheckoutSuccessPage({
                                     </div>
                                 </div>
 
-                                {/* Download Links — go through secure /api/download to verify auth */}
-                                <div className="flex items-center gap-2">
+                                {/* Downloads — DownloadButton fetches a signed URL then triggers
+                                    the download (never navigate straight to the JSON API). */}
+                                <div className="flex flex-wrap items-center gap-2">
                                     {(item.beats?.file_mp3_url || item.beats?.file_wav_url) && (
-                                        <Link href={`/api/download?beat_id=${item.beats.id}&file=mp3&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
-                                            <Download className="w-4 h-4" /> Download
-                                        </Link>
+                                        <DownloadButton orderId={orderId} beatId={item.beats.id} fileType="mp3" label="Download" className="!py-2.5 !rounded-lg" />
                                     )}
                                     {['wav', 'trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_wav_url && (
-                                        <Link href={`/api/download?beat_id=${item.beats.id}&file=wav&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
-                                            <Download className="w-4 h-4" /> WAV
-                                        </Link>
+                                        <DownloadButton orderId={orderId} beatId={item.beats.id} fileType="wav" label="WAV" className="!py-2.5 !rounded-lg" />
                                     )}
                                     {['trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_stems_url && (
-                                        <Link href={`/api/download?beat_id=${item.beats.id}&file=stems&order_id=${orderId}`} className="h-10 px-4 bg-bg-surface border border-border-subtle rounded-lg text-sm font-bold flex items-center gap-2 hover:text-accent-orange transition-colors">
-                                            <Download className="w-4 h-4" /> STEMS
-                                        </Link>
+                                        <DownloadButton orderId={orderId} beatId={item.beats.id} fileType="stems" label="Stems" className="!py-2.5 !rounded-lg" />
                                     )}
                                 </div>
                             </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { FileText, Download, X } from 'lucide-react'
+import LicenseDocument from './LicenseDocument'
 
 interface LicenseModalProps {
   licenseText: string
@@ -63,11 +64,9 @@ export default function LicenseModal({ licenseText, orderItemId, beatTitle }: Li
               </button>
             </div>
 
-            {/* Content Body */}
-            <div className="flex-1 overflow-y-auto p-6 bg-black/40 custom-scrollbar">
-              <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-text-muted/90">
-                {licenseText}
-              </pre>
+            {/* Content Body — formatted document with highlighted terms */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-black/40 custom-scrollbar">
+              <LicenseDocument text={licenseText} />
             </div>
 
             {/* Footer */}
