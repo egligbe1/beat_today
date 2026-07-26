@@ -39,7 +39,12 @@ const DEFAULT_SLIDES: Slide[] = [
 
 export default function HeroCarousel({ tracks = [] }: { tracks?: any[] }) {
   const [current, setCurrent] = useState(0)
-  
+  // Skip the fade-in on the very first paint so the hero is visible immediately
+  // in the server-rendered HTML (no dark gap while JS loads). Only slide
+  // transitions after mount animate.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   // Create slides: Main brand slide always first, then featured tracks
   const dynamicSlides = tracks.slice(0, 3).map((track, i) => ({
     id: track.id,
@@ -65,7 +70,7 @@ export default function HeroCarousel({ tracks = [] }: { tracks?: any[] }) {
       <AnimatePresence mode="wait">
         <motion.div
           key={slides[current].id}
-          initial={{ opacity: 0 }}
+          initial={mounted ? { opacity: 0 } : false}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 1, ease: "easeInOut" }}
@@ -77,6 +82,7 @@ export default function HeroCarousel({ tracks = [] }: { tracks?: any[] }) {
             alt={slides[current].title}
             fill
             priority
+            sizes="100vw"
             className="object-cover opacity-60"
           />
           

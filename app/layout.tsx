@@ -15,6 +15,11 @@ const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
+// Origins we hit early on load — preconnect to shave the TLS/DNS handshake.
+const originOf = (u?: string) => { try { return u ? new URL(u).origin : '' } catch { return '' } }
+const supabaseOrigin = originOf(process.env.NEXT_PUBLIC_SUPABASE_URL)
+const r2Origin = originOf(process.env.CLOUDFLARE_R2_PUBLIC_URL)
+
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -61,8 +66,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="preconnect" href="https://zinihlwafqvuaznisjcw.supabase.co" />
-        <link rel="dns-prefetch" href="https://zinihlwafqvuaznisjcw.supabase.co" />
+        {r2Origin && <link rel="preconnect" href={r2Origin} crossOrigin="anonymous" />}
+        {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} />}
+        {supabaseOrigin && <link rel="dns-prefetch" href={supabaseOrigin} />}
       </head>
       <body className={inter.className}>
         <CurrencyProvider>

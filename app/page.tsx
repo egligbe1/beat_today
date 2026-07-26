@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
+import { unstable_cache } from 'next/cache'
 import BeatCard from '@/components/beats/BeatCard'
 import GenreTabs from '@/components/home/GenreTabs'
 import TrustRibbon from '@/components/home/TrustRibbon'
@@ -23,39 +24,35 @@ const HeroCarousel = dynamic(() => import('@/components/home/HeroCarousel'), {
   loading: () => <div className="w-full h-[300px] sm:h-[500px] bg-zinc-950 animate-pulse" />
 })
 
-export const revalidate = 0
+export const revalidate = 120
+
+// Cache the (public, non-personalized) homepage data per genre so a fresh visit
+// doesn't block on live DB queries before any HTML — including the hero — is
+// sent. Cache hits serve with zero DB round-trips.
+const getHomeData = (genre?: string) => unstable_cache(
+  async () => {
+    const supabase = createPublicClient()
+    const beatsQuery = supabase
+      .from('beats')
+      .select('*, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(8)
+    if (genre && genre !== 'All') beatsQuery.eq('genre', genre)
+
+    const [{ data: beats }, { data: proProducers }, { data: starterProducers }] = await Promise.all([
+      beatsQuery,
+      supabase.from('users_profiles').select('*, producer_settings!inner(subscription_tier)').eq('role', 'producer').eq('producer_settings.subscription_tier', 'PRO').limit(6),
+      supabase.from('users_profiles').select('*, producer_settings!inner(subscription_tier)').eq('role', 'producer').eq('producer_settings.subscription_tier', 'STARTER').limit(6),
+    ])
+    return { beats: beats || [], proProducers: proProducers || [], starterProducers: starterProducers || [] }
+  },
+  ['home-data', genre || 'all'],
+  { revalidate: 120, tags: ['home'] }
+)()
 
 export default async function Home({ searchParams }: { searchParams: { genre?: string; q?: string } }) {
-  const supabase = createClient()
-  const genreStr = searchParams.genre
-
-  const beatsQuery = supabase
-    .from('beats')
-    .select('*, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(8)
-
-  const proProducersQuery = supabase
-    .from('users_profiles')
-    .select('*, producer_settings!inner(subscription_tier)')
-    .eq('role', 'producer')
-    .eq('producer_settings.subscription_tier', 'PRO')
-    .limit(6)
-
-  const starterProducersQuery = supabase
-    .from('users_profiles')
-    .select('*, producer_settings!inner(subscription_tier)')
-    .eq('role', 'producer')
-    .eq('producer_settings.subscription_tier', 'STARTER')
-    .limit(6)
-
-  if (genreStr && genreStr !== 'All') beatsQuery.eq('genre', genreStr)
-
-  const [{ data: beats }, { data: proProducers }, { data: starterProducers }] = await Promise.all([
-    beatsQuery, proProducersQuery, starterProducersQuery,
-  ])
-
+  const { beats, proProducers, starterProducers } = await getHomeData(searchParams.genre)
   const producers = (proProducers && proProducers.length > 0) ? proProducers : (starterProducers || [])
 
   return (
