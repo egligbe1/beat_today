@@ -71,34 +71,62 @@ export default function UploadPage() {
       setTier(settingsResult.data?.subscription_tier || 'free')
       setBeatCount(countResult.count || 0)
 
-      // Check if we are resuming a draft
+      // Resume a draft: either the one named in ?id, or — to avoid spawning a
+      // new draft row on every visit — the producer's most recent existing
+      // draft. Only mint a brand-new id when there is no draft to continue.
       const draftId = searchParams.get('id')
+      let draft: any = null
       if (draftId) {
-        const { data: draft } = await supabase
+        const { data } = await supabase
           .from('beats')
           .select('*')
           .eq('id', draftId)
           .eq('producer_id', user.id)
-          .single()
-        
-        if (draft) {
-          setBeatId(draft.id)
-          setForm({
-            title: draft.title || '',
-            genre: draft.genre || 'Afrobeats',
-            bpm: draft.bpm?.toString() || '',
-            key: draft.key || 'C',
-            tags: draft.mood_tags?.join(', ') || '',
-            price_mp3: draft.price_mp3?.toString() || '19.99',
-            price_wav: draft.price_wav?.toString() || '39.99',
-            price_trackout: draft.price_trackout?.toString() || '99.99',
-            price_exclusive: draft.price_exclusive?.toString() || '499.99',
-            is_free: draft.is_free || false,
-          })
-        }
+          .maybeSingle()
+        draft = data
+      } else {
+        const { data } = await supabase
+          .from('beats')
+          .select('*')
+          .eq('producer_id', user.id)
+          .eq('status', 'draft')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        draft = data
+      }
+
+      if (draft) {
+        setBeatId(draft.id)
+        setForm({
+          title: draft.title || '',
+          genre: draft.genre || 'Afrobeats',
+          bpm: draft.bpm?.toString() || '',
+          key: draft.key || 'C',
+          tags: draft.mood_tags?.join(', ') || '',
+          price_mp3: draft.price_mp3?.toString() || '19.99',
+          price_wav: draft.price_wav?.toString() || '39.99',
+          price_trackout: draft.price_trackout?.toString() || '99.99',
+          price_exclusive: draft.price_exclusive?.toString() || '499.99',
+          is_free: draft.is_free || false,
+        })
       } else {
         setBeatId(crypto.randomUUID())
       }
+
+      // Clean up previously-accumulated abandoned drafts: metadata-only rows
+      // (no uploaded files) other than the one we're resuming. Safe — nothing
+      // with an actual upload is touched.
+      let cleanup = supabase
+        .from('beats')
+        .delete()
+        .eq('producer_id', user.id)
+        .eq('status', 'draft')
+        .is('file_mp3_url', null)
+        .is('file_wav_url', null)
+        .is('cover_url', null)
+      if (draft?.id) cleanup = cleanup.neq('id', draft.id)
+      cleanup.then(() => {})
 
       setChecking(false)
     }
