@@ -6,7 +6,14 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400, // 24h CDN cache for images
     remotePatterns: [
-      // Match any Supabase project bucket (survives project resets / ref changes)
+      // Cloudflare R2 public bucket (covers, previews, avatars)
+      {
+        protocol: 'https',
+        hostname: '**.r2.dev',
+        port: '',
+        pathname: '/**',
+      },
+      // Legacy Supabase public buckets (kept during/after migration)
       {
         protocol: 'https',
         hostname: '*.supabase.co',

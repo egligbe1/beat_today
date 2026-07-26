@@ -7,6 +7,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Upload, Save, Loader2, Music } from 'lucide-react'
 import { convertToWebP } from '@/lib/utils/storageUtils'
+import { uploadToR2 } from '@/lib/r2Upload'
 
 const GENRES = [
   'Afrobeats', 'Amapiano', 'Afro-drill', 'Trap Dancehall', 'Dancehall',
@@ -104,51 +105,22 @@ export default function EditBeatPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      const uploadResults: Record<string, string> = {}
-      const storagePaths: Record<string, string> = {}
-
       // Clean master may be MP3 or WAV — store it under its real extension.
       const cleanIsWav = !!files.mp3Clean && (files.mp3Clean.type.includes('wav') || files.mp3Clean.name.toLowerCase().endsWith('.wav'))
       const cleanExt = cleanIsWav ? 'wav' : 'mp3'
 
-      // Upload only changed files
-      const fileTasks = [
-        { name: 'cover', bucket: 'beat-covers', path: `${user.id}/${beatId}-cover-${Date.now()}.webp`, public: true },
-        // Single clean master (private, MP3 or WAV). The tagged preview is
-        // regenerated from it below — never store the untagged beat publicly.
-        { name: 'mp3Clean', bucket: 'beat-files', path: `${user.id}/${beatId}-clean.${cleanExt}`, public: false },
-        { name: 'stemsZip', bucket: 'beat-files', path: `${user.id}/${beatId}-stems.zip`, public: false },
-      ]
-
-      await Promise.all(fileTasks.map(async (task) => {
-        let file = (files as any)[task.name]
-        if (!file) return
-
-        // Convert cover to WebP before upload
-        if (task.name === 'cover') {
-          try {
-            file = await convertToWebP(file)
-          } catch (err) {
-            console.error('WebP conversion failed, using original:', err)
-          }
-        }
-
-        // Upsert (overwrite) existing file
-        const { data, error: uploadError } = await supabase.storage
-          .from(task.bucket)
-          .upload(task.path, file, { upsert: true })
-
-        if (uploadError) throw uploadError
-
-        storagePaths[task.name] = task.path
-
-        if (task.public) {
-          const { data: { publicUrl } } = supabase.storage.from(task.bucket).getPublicUrl(task.path)
-          uploadResults[task.name] = publicUrl
-        } else {
-          uploadResults[task.name] = data.path
-        }
-      }))
+      // Upload only the changed files, directly to R2 via presigned URLs.
+      const [coverRes, masterRes, stemsRes] = await Promise.all([
+        files.cover
+          ? convertToWebP(files.cover).catch(() => files.cover!).then(f => uploadToR2({ purpose: 'cover', file: f, beatId, ext: 'webp', contentType: 'image/webp' }))
+          : Promise.resolve(null),
+        files.mp3Clean
+          ? uploadToR2({ purpose: 'master', file: files.mp3Clean, beatId, ext: cleanExt, contentType: files.mp3Clean.type || 'audio/mpeg' })
+          : Promise.resolve(null),
+        files.stemsZip
+          ? uploadToR2({ purpose: 'stems', file: files.stemsZip, beatId, ext: 'zip', contentType: files.stemsZip.type || 'application/zip' })
+          : Promise.resolve(null),
+      ])
 
       // Build update payload (only include file fields if files were changed)
       const updatePayload: Record<string, any> = {
@@ -166,17 +138,17 @@ export default function EditBeatPage() {
         updated_at: new Date().toISOString(),
       }
 
-      if (uploadResults.cover) updatePayload.cover_url = uploadResults.cover
+      if (coverRes?.publicUrl) updatePayload.cover_url = coverRes.publicUrl
       // mp3_preview_url is owned by the watermark pipeline (queued below) — do
       // not set it directly to an untagged upload. Store the clean master in the
       // column matching its real format and clear the other so downloads resolve
       // to the correct file.
-      if (uploadResults.mp3Clean) {
-        updatePayload.file_mp3_url = cleanIsWav ? null : uploadResults.mp3Clean
-        updatePayload.file_wav_url = cleanIsWav ? uploadResults.mp3Clean : null
+      if (masterRes?.key) {
+        updatePayload.file_mp3_url = cleanIsWav ? null : masterRes.key
+        updatePayload.file_wav_url = cleanIsWav ? masterRes.key : null
         updatePayload.watermark_status = 'pending'
       }
-      if (uploadResults.stemsZip) updatePayload.file_stems_url = uploadResults.stemsZip
+      if (stemsRes?.key) updatePayload.file_stems_url = stemsRes.key
 
       const { error: dbError } = await supabase
         .from('beats')
@@ -187,11 +159,11 @@ export default function EditBeatPage() {
       if (dbError) throw dbError
 
       // Regenerate the tagged preview from the new clean master, if replaced.
-      if (storagePaths.mp3Clean) {
+      if (masterRes?.key) {
         fetch('/api/audio/queue-watermark', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ beat_id: beatId, storage_path: storagePaths.mp3Clean }),
+          body: JSON.stringify({ beat_id: beatId, storage_path: masterRes.key }),
         }).catch(() => {/* cron will pick it up */})
       }
 

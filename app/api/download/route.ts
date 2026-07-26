@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { presignDownload } from '@/lib/r2'
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -80,35 +81,18 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'File not available' }, { status: 404 })
     }
 
-    // 4. Generate signed URL (1-hour expiry).
-    // filePath may be a full public URL (legacy) or a storage path.
-    let storagePath = filePath
-    if (filePath.startsWith('http')) {
-      const urlObj = new URL(filePath)
-      // Supabase storage path is after /storage/v1/object/public|sign/<bucket>/
-      const match = /\/storage\/v1\/object\/(?:public|sign)\/[^/]+\/(.+)/.exec(urlObj.pathname)
-      if (match) {
-        storagePath = match[1]
-      } else {
-        return NextResponse.redirect(filePath)
-      }
-    }
+    // 4. Presign the private R2 object (1-hour expiry). Stored value is the R2
+    //    object key. Filename uses the real extension so a WAV isn't mislabeled.
+    const ext = fileType === 'stems' ? 'zip' : (filePath.split('.').pop() || 'mp3').toLowerCase()
+    const filename = `${beat.title || 'beat'}.${ext}`
 
-    const { data: signedUrlData, error: signError } = await supabaseAdmin.storage
-      .from('beat-files')
-      .createSignedUrl(storagePath, 3600) // 1 hour
-
-    if (signError || !signedUrlData) {
-      console.error('Signed URL error:', signError)
+    try {
+      const url = await presignDownload(filePath, { filename, expiresIn: 3600 })
+      return NextResponse.json({ url, filename })
+    } catch (err) {
+      console.error('Presign download error:', err)
       return NextResponse.json({ error: 'Failed to generate download link' }, { status: 500 })
     }
-
-    // Filename uses the actual stored extension so a WAV master isn't mislabeled.
-    const ext = fileType === 'stems' ? 'zip' : (storagePath.split('.').pop() || 'mp3').toLowerCase()
-    return NextResponse.json({
-      url: signedUrlData.signedUrl,
-      filename: `${beat.title || 'beat'}.${ext}`,
-    })
   } catch (err: any) {
     console.error('Download API error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

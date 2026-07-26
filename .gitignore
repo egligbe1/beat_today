@@ -40,3 +40,7 @@ next-env.d.ts
 /*.pdf
 .claude/
 .gemini/
+
+# Azure Storage emulator (Azurite) local DB files
+__azurite_db*.json
+__blobstorage__/

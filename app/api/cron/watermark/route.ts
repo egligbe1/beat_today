@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getObjectBuffer, putObject, listObjects, publicUrl, R2_PUBLIC_BUCKET, R2_PRIVATE_BUCKET } from '@/lib/r2'
 import { spawn } from 'child_process'
 import { writeFile, readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
@@ -91,20 +92,18 @@ export async function POST(req: Request) {
       let proTagPath: string | null = null
 
       if (isPro) {
-        const { data: tagFiles } = await supabaseAdmin.storage
-          .from('beat-previews')
-          .list(`producer-tags/${beat.producer_id}`)
-        const customTag = tagFiles?.find(f => f.name.toLowerCase() === 'tag.mp3')
-        if (customTag) proTagPath = `producer-tags/${beat.producer_id}/tag.mp3`
+        const tagKey = `producer-tags/${beat.producer_id}/tag.mp3`
+        const tagKeys = await listObjects(R2_PUBLIC_BUCKET, tagKey)
+        if (tagKeys.includes(tagKey)) proTagPath = tagKey
       }
 
       const id = beat.id.slice(0,8)
       const tmpIn = join(tmpdir(), `cron-in-${id}.mp3`); tempFiles.push(tmpIn)
       const tmpOut = join(tmpdir(), `cron-out-${id}.mp3`); tempFiles.push(tmpOut)
 
-      const { data: bFile } = await supabaseAdmin.storage.from('beat-files').download(beat.storage_path)
-      if (!bFile) throw new Error('Source not found')
-      await writeFile(tmpIn, Buffer.from(await bFile.arrayBuffer()))
+      const bBuffer = await getObjectBuffer(R2_PRIVATE_BUCKET, beat.storage_path)
+      if (!bBuffer?.length) throw new Error('Source not found')
+      await writeFile(tmpIn, bBuffer)
 
       const duration = await getAudioDuration(tmpIn)
       const times: number[] = []
@@ -113,10 +112,9 @@ export async function POST(req: Request) {
       }
       if (times.length === 0) times.push(0)
 
-      let globalTags: any[] = []
+      let globalTags: string[] = []
       if (!proTagPath) {
-        const { data: gf } = await supabaseAdmin.storage.from('beat-previews').list('_watermark')
-        globalTags = gf?.filter(f => f.name.endsWith('.mp3')) || []
+        globalTags = (await listObjects(R2_PUBLIC_BUCKET, '_watermark/')).filter(k => k.endsWith('.mp3'))
       }
 
       const inputs = ['-i', tmpIn]
@@ -125,17 +123,19 @@ export async function POST(req: Request) {
 
       for (let i = 0; i < times.length; i++) {
         const tagFile = join(tmpdir(), `cron-tag-${id}-${i}.mp3`); tempFiles.push(tagFile)
-        let downloadPath = ''
+        let tagKey = ''
         if (proTagPath) {
-          downloadPath = proTagPath
-        } else {
-          const tagToUse = globalTags.length > 0 ? globalTags[Math.floor(Math.random() * globalTags.length)].name : 'voice.mp3'
-          downloadPath = `_watermark/${tagToUse}`
+          tagKey = proTagPath
+        } else if (globalTags.length > 0) {
+          tagKey = globalTags[Math.floor(Math.random() * globalTags.length)]
         }
 
-        const { data: vFile } = await supabaseAdmin.storage.from('beat-previews').download(downloadPath)
-        if (vFile) {
-          await writeFile(tagFile, Buffer.from(await vFile.arrayBuffer()))
+        let tagBuffer: Buffer | null = null
+        if (tagKey) {
+          try { tagBuffer = await getObjectBuffer(R2_PUBLIC_BUCKET, tagKey) } catch { tagBuffer = null }
+        }
+        if (tagBuffer?.length) {
+          await writeFile(tagFile, tagBuffer)
         } else {
           await runFfmpeg(['-f', 'lavfi', '-i', 'sine=frequency=880:duration=1', '-codec:a', 'libmp3lame', '-y', tagFile])
         }
@@ -150,12 +150,12 @@ export async function POST(req: Request) {
 
       await runFfmpeg([...inputs, '-filter_complex', filterParts.join(';'), '-map', '[out]', '-codec:a', 'libmp3lame', '-q:a', '4', '-y', tmpOut])
 
-      const watermarkedPath = `watermarked/${beat.producer_id}/${beat.id}.mp3`
-      await supabaseAdmin.storage.from('beat-previews').upload(watermarkedPath, await readFile(tmpOut), { contentType: 'audio/mpeg', upsert: true })
-      const { data: { publicUrl } } = supabaseAdmin.storage.from('beat-previews').getPublicUrl(watermarkedPath)
+      const previewKey = `previews/${beat.producer_id}/${beat.id}.mp3`
+      await putObject(R2_PUBLIC_BUCKET, previewKey, await readFile(tmpOut), 'audio/mpeg')
+      const previewUrl = publicUrl(previewKey)
 
       await Promise.all([
-        supabaseAdmin.from('beats').update({ mp3_preview_url: publicUrl, watermark_status: 'done' }).eq('id', beat.id),
+        supabaseAdmin.from('beats').update({ mp3_preview_url: previewUrl, watermark_status: 'done' }).eq('id', beat.id),
         supabaseAdmin.from('watermark_jobs').update({ status: 'done', processed_at: new Date().toISOString() }).eq('id', job.id)
       ])
       results.push({ id: job.id, success: true })
