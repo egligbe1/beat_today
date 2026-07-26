@@ -6,17 +6,18 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400, // 24h CDN cache for images
     remotePatterns: [
+      // Match any Supabase project bucket (survives project resets / ref changes)
       {
         protocol: 'https',
-        hostname: 'zinihlwafqvuaznisjcw.supabase.co',
+        hostname: '*.supabase.co',
         port: '',
-        pathname: '/**',
+        pathname: '/storage/v1/object/public/**',
       },
     ],
   },
-  // Reduce bundle size by externalizing heavy server-only deps
+  // Tree-shake heavy client libs so only the used icons/functions ship.
   experimental: {
-    optimizePackageImports: ['lucide-react'],
+    optimizePackageImports: ['lucide-react', 'framer-motion', 'date-fns'],
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',

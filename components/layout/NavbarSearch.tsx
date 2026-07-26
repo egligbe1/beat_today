@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Music } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface BeatResult {
   id: string
@@ -196,9 +197,9 @@ export default function NavbarSearch() {
                         onClick={() => handleResultClick(item)}
                         className="w-full p-3 hover:bg-white/5 rounded-xl transition-all text-left flex items-center gap-3 group"
                       >
-                        <div className="w-11 h-11 rounded-lg overflow-hidden bg-bg-primary flex-shrink-0 border border-white/5">
+                        <div className="w-11 h-11 rounded-lg overflow-hidden bg-bg-primary flex-shrink-0 border border-white/5 relative">
                           {item.image ? (
-                            <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                            <Image src={item.image} alt={item.title} fill sizes="44px" className="object-cover group-hover:scale-110 transition-transform duration-500" />
                           ) : (
                             <Music className="w-5 h-5 text-text-muted m-auto" />
                           )}
@@ -226,9 +227,9 @@ export default function NavbarSearch() {
                           onClick={() => handleResultClick(item)}
                           className="w-full p-3 hover:bg-white/5 rounded-xl transition-all text-left flex items-center gap-3 group"
                         >
-                          <div className="w-11 h-11 rounded-full overflow-hidden bg-bg-primary flex-shrink-0 border border-white/5">
+                          <div className="w-11 h-11 rounded-full overflow-hidden bg-bg-primary flex-shrink-0 border border-white/5 relative">
                             {item.image ? (
-                              <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                              <Image src={item.image} alt={item.title} fill sizes="44px" className="object-cover group-hover:scale-110 transition-transform duration-500" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-[#FF5500]/10 font-bold text-[#FF5500]">
                                 {item.title.charAt(0)}

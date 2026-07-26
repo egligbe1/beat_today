@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.CRON_SECRET || 'internal'}`
+      'Authorization': `Bearer ${process.env.CRON_SECRET ?? ''}`
     },
     body: JSON.stringify({ beat_id, storage_path }),
   }).catch(err => console.error('[QUEUE] Failed to trigger background watermark:', err))

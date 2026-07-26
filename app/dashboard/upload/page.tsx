@@ -50,11 +50,10 @@ export default function UploadPage() {
 
   const [files, setFiles] = useState<{
     cover: File | null
-    mp3Preview: File | null
     mp3Clean: File | null
     wavFile: File | null
     stemsZip: File | null
-  }>({ cover: null, mp3Preview: null, mp3Clean: null, wavFile: null, stemsZip: null })
+  }>({ cover: null, mp3Clean: null, wavFile: null, stemsZip: null })
 
   const limits = getTierLimits(tier)
   const atLimit = limits.max_beats !== Infinity && beatCount >= limits.max_beats
@@ -164,11 +163,7 @@ export default function UploadPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const file = e.target.files![0]
-      if (e.target.name === 'mp3Preview') {
-        setFiles(prev => ({ ...prev, mp3Preview: file, mp3Clean: file }))
-      } else {
-        setFiles(prev => ({ ...prev, [e.target.name]: file }))
-      }
+      setFiles(prev => ({ ...prev, [e.target.name]: file }))
     }
   }
 
@@ -182,9 +177,12 @@ export default function UploadPage() {
 
       if (atLimit) throw new Error(`Limit reached on ${tier.toUpperCase()} plan.`)
 
+      if (!files.mp3Clean) throw new Error('Please upload your beat (MP3)')
+
       const fileTasks = [
         { name: 'cover', bucket: 'beat-covers', path: `${user.id}/${beatId}-cover-${Date.now()}.webp` },
-        { name: 'mp3Preview', bucket: 'beat-files', path: `previews/${user.id}/${beatId}-preview.mp3` },
+        // Single clean MP3 master — this is both the sold file AND the source the
+        // watermark pipeline auto-tags into a preview. No separate preview upload.
         { name: 'mp3Clean', bucket: 'beat-files', path: `${user.id}/${beatId}-clean.mp3` },
         ...(limits.wav_upload && files.wavFile ? [{ name: 'wavFile', bucket: 'beat-files', path: `${user.id}/${beatId}-main.wav` }] : []),
         ...(limits.stems_upload && files.stemsZip ? [{ name: 'stemsZip', bucket: 'beat-files', path: `${user.id}/${beatId}-stems.zip` }] : []),
@@ -257,11 +255,13 @@ export default function UploadPage() {
          }
       }
 
-      if (storagePaths.mp3Preview) {
+      // Auto-generate the tagged preview from the clean master the producer
+      // just uploaded — no separate "preview" file required.
+      if (storagePaths.mp3Clean) {
         await fetch('/api/audio/queue-watermark', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ beat_id: beatId, storage_path: storagePaths.mp3Preview }),
+          body: JSON.stringify({ beat_id: beatId, storage_path: storagePaths.mp3Clean }),
         })
       }
 
@@ -473,11 +473,16 @@ export default function UploadPage() {
                 className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-widest file:bg-white/5 file:text-white hover:file:bg-white/10 transition-all w-full" />
             </div>
 
-            {/* MP3 Preview — all tiers */}
+            {/* Full beat MP3 — all tiers. This is the sold master AND the source
+                for the auto-generated tagged preview. */}
             <div>
-              <label className="block text-xs text-text-muted mb-1 uppercase tracking-widest font-bold">MP3 Preview (tagged/watermarked)</label>
-              <input name="mp3Preview" type="file" accept="audio/mpeg" onChange={handleFileChange} required
+              <label className="block text-xs text-text-muted mb-1 uppercase tracking-widest font-bold">Full Beat — MP3 (untagged)</label>
+              <input name="mp3Clean" type="file" accept="audio/mpeg" onChange={handleFileChange} required
                 className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-widest file:bg-white/5 file:text-white hover:file:bg-white/10 transition-all w-full" />
+              <p className="text-[10px] text-text-muted/70 mt-1.5 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3 h-3 text-green-500/60 flex-shrink-0" />
+                Upload your clean beat — we automatically create the tagged preview. No need to tag it yourself.
+              </p>
             </div>
 
             {/* WAV — Starter+ */}
