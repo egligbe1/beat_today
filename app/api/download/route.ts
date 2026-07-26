@@ -7,23 +7,10 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Maps license types to which file columns are accessible.
-// mp3_preview_url is intentionally excluded — it points to the watermarked
-// preview in the public bucket. Buyers always receive the clean file from
-// the private beat-files bucket via file_mp3_url.
-const LICENSE_FILE_ACCESS: Record<string, string[]> = {
-  mp3:      ['file_mp3_url'],
-  wav:      ['file_wav_url', 'file_mp3_url'],
-  trackout: ['file_wav_url', 'file_stems_url', 'file_mp3_url'],
-  exclusive:['file_wav_url', 'file_stems_url', 'file_mp3_url'],
-}
-
-// Maps file column name to its Supabase storage bucket
-const FILE_BUCKETS: Record<string, string> = {
-  file_mp3_url:   'beat-files',
-  file_wav_url:   'beat-files',
-  file_stems_url: 'beat-files',
-}
+// Producers upload ONE clean master (MP3 or WAV). It lands in file_mp3_url or
+// file_wav_url depending on its real format. Any purchased license grants the
+// clean audio; stems are reserved for trackout/exclusive.
+const STEMS_LICENSES = new Set(['trackout', 'exclusive'])
 
 export async function GET(req: Request) {
   try {
@@ -75,45 +62,40 @@ export async function GET(req: Request) {
     const licenseType = orderItem.license_type as string
     const beat = orderItem.beats as any
 
-    // 3. Determine which file column to use
-    const FILE_COLUMN: Record<string, string> = { mp3: 'file_mp3_url', wav: 'file_wav_url', stems: 'file_stems_url' }
-    const fileColumnKey = FILE_COLUMN[fileType]
-    if (!fileColumnKey) {
-      return NextResponse.json({ error: 'Invalid file type' }, { status: 400 })
+    // 3. Resolve the file path for what was requested.
+    //  - 'stems' → the stems ZIP, only for trackout/exclusive licenses.
+    //  - anything else (audio) → the single clean master, whichever format the
+    //    producer uploaded (WAV preferred over MP3). Granted to every license.
+    let filePath: string | null = null
+    if (fileType === 'stems') {
+      if (!STEMS_LICENSES.has(licenseType)) {
+        return NextResponse.json({ error: 'Your license does not include stems' }, { status: 403 })
+      }
+      filePath = beat.file_stems_url ?? null
+    } else {
+      filePath = beat.file_wav_url ?? beat.file_mp3_url ?? null
     }
 
-    const filePath: string | null = beat[fileColumnKey] ?? null
     if (!filePath) {
       return NextResponse.json({ error: 'File not available' }, { status: 404 })
     }
 
-    // 4. Check license allows this file type
-    const allowedFiles = LICENSE_FILE_ACCESS[licenseType] || []
-
-    if (!allowedFiles.includes(fileColumnKey)) {
-      return NextResponse.json({ error: 'Your license does not include this file type' }, { status: 403 })
-    }
-
-    // 5. Generate signed URL (1-hour expiry)
-    // filePath might be a full public URL (for previews) or a storage path
-    const bucket = FILE_BUCKETS[fileColumnKey]
-
-    // Extract just the storage path from the URL if it's a full URL
+    // 4. Generate signed URL (1-hour expiry).
+    // filePath may be a full public URL (legacy) or a storage path.
     let storagePath = filePath
     if (filePath.startsWith('http')) {
       const urlObj = new URL(filePath)
-      // Supabase storage path is after /storage/v1/object/public/<bucket>/
-      const match = urlObj.pathname.match(/\/storage\/v1\/object\/(?:public|sign)\/[^/]+\/(.+)/)
+      // Supabase storage path is after /storage/v1/object/public|sign/<bucket>/
+      const match = /\/storage\/v1\/object\/(?:public|sign)\/[^/]+\/(.+)/.exec(urlObj.pathname)
       if (match) {
         storagePath = match[1]
       } else {
-        // It's a public URL, redirect directly
         return NextResponse.redirect(filePath)
       }
     }
 
     const { data: signedUrlData, error: signError } = await supabaseAdmin.storage
-      .from(bucket)
+      .from('beat-files')
       .createSignedUrl(storagePath, 3600) // 1 hour
 
     if (signError || !signedUrlData) {
@@ -121,9 +103,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Failed to generate download link' }, { status: 500 })
     }
 
+    // Filename uses the actual stored extension so a WAV master isn't mislabeled.
+    const ext = fileType === 'stems' ? 'zip' : (storagePath.split('.').pop() || 'mp3').toLowerCase()
     return NextResponse.json({
       url: signedUrlData.signedUrl,
-      filename: `${beat.title || 'beat'}-${fileType}.${fileType === 'stems' ? 'zip' : fileType}`
+      filename: `${beat.title || 'beat'}.${ext}`,
     })
   } catch (err: any) {
     console.error('Download API error:', err)

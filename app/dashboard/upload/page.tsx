@@ -51,9 +51,8 @@ export default function UploadPage() {
   const [files, setFiles] = useState<{
     cover: File | null
     mp3Clean: File | null
-    wavFile: File | null
     stemsZip: File | null
-  }>({ cover: null, mp3Clean: null, wavFile: null, stemsZip: null })
+  }>({ cover: null, mp3Clean: null, stemsZip: null })
 
   const limits = getTierLimits(tier)
   const atLimit = limits.max_beats !== Infinity && beatCount >= limits.max_beats
@@ -177,14 +176,18 @@ export default function UploadPage() {
 
       if (atLimit) throw new Error(`Limit reached on ${tier.toUpperCase()} plan.`)
 
-      if (!files.mp3Clean) throw new Error('Please upload your beat (MP3)')
+      if (!files.mp3Clean) throw new Error('Please upload your beat (MP3 or WAV)')
+
+      // Accept the clean master as MP3 or WAV. It is the single file the producer
+      // uploads: buyers who purchase download it; browsers hear an auto-tagged
+      // preview generated from it.
+      const cleanIsWav = files.mp3Clean.type.includes('wav') || files.mp3Clean.name.toLowerCase().endsWith('.wav')
+      const cleanExt = cleanIsWav ? 'wav' : 'mp3'
 
       const fileTasks = [
         { name: 'cover', bucket: 'beat-covers', path: `${user.id}/${beatId}-cover-${Date.now()}.webp` },
-        // Single clean MP3 master — this is both the sold file AND the source the
-        // watermark pipeline auto-tags into a preview. No separate preview upload.
-        { name: 'mp3Clean', bucket: 'beat-files', path: `${user.id}/${beatId}-clean.mp3` },
-        ...(limits.wav_upload && files.wavFile ? [{ name: 'wavFile', bucket: 'beat-files', path: `${user.id}/${beatId}-main.wav` }] : []),
+        // Single clean master (MP3 or WAV) — sold file AND watermark source.
+        { name: 'mp3Clean', bucket: 'beat-files', path: `${user.id}/${beatId}-clean.${cleanExt}` },
         ...(limits.stems_upload && files.stemsZip ? [{ name: 'stemsZip', bucket: 'beat-files', path: `${user.id}/${beatId}-stems.zip` }] : []),
       ]
 
@@ -229,8 +232,11 @@ export default function UploadPage() {
         price_exclusive: form.is_free ? null : parseFloat(form.price_exclusive),
         is_free: form.is_free,
         cover_url: uploadResults.cover || undefined,
-        file_mp3_url: uploadResults.mp3Clean || undefined,
-        file_wav_url: uploadResults.wavFile || undefined,
+        // Store the clean master in the column matching its real format. The
+        // download route serves whichever clean file exists for any purchased
+        // license, so the buyer always gets a correctly-labeled file.
+        file_mp3_url: cleanIsWav ? undefined : (uploadResults.mp3Clean || undefined),
+        file_wav_url: cleanIsWav ? (uploadResults.mp3Clean || undefined) : undefined,
         file_stems_url: uploadResults.stemsZip || undefined,
         status: 'pending', // IMPORTANT: Moved to pending while watermarking
       })
@@ -473,37 +479,16 @@ export default function UploadPage() {
                 className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-widest file:bg-white/5 file:text-white hover:file:bg-white/10 transition-all w-full" />
             </div>
 
-            {/* Full beat MP3 — all tiers. This is the sold master AND the source
-                for the auto-generated tagged preview. */}
+            {/* The producer's single clean master (MP3 or WAV). Sold to buyers;
+                the tagged preview is auto-generated from it. */}
             <div>
-              <label className="block text-xs text-text-muted mb-1 uppercase tracking-widest font-bold">Full Beat — MP3 (untagged)</label>
-              <input name="mp3Clean" type="file" accept="audio/mpeg" onChange={handleFileChange} required
+              <label className="block text-xs text-text-muted mb-1 uppercase tracking-widest font-bold">Your Beat — Clean Audio (MP3 or WAV)</label>
+              <input name="mp3Clean" type="file" accept="audio/mpeg,audio/wav,audio/x-wav" onChange={handleFileChange} required
                 className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-widest file:bg-white/5 file:text-white hover:file:bg-white/10 transition-all w-full" />
-              <p className="text-[10px] text-text-muted/70 mt-1.5 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3 h-3 text-green-500/60 flex-shrink-0" />
-                Upload your clean beat — we automatically create the tagged preview. No need to tag it yourself.
+              <p className="text-[10px] text-text-muted/70 mt-1.5 flex items-start gap-1.5">
+                <CheckCircle2 className="w-3 h-3 text-green-500/60 flex-shrink-0 mt-0.5" />
+                <span>Upload your finished beat — <b className="text-text-muted">untagged</b>. Listeners browsing hear an auto-generated tagged preview; buyers who purchase download this clean file. No need to tag anything yourself.</span>
               </p>
-            </div>
-
-            {/* WAV — Starter+ */}
-            <div className={!limits.wav_upload ? 'opacity-50' : ''}>
-              <label className="block text-xs text-text-muted mb-1 uppercase tracking-widest font-bold flex items-center gap-2">
-                Main WAV File (untagged)
-                {!limits.wav_upload && (
-                  <span className="flex items-center gap-1 text-accent-gold text-[9px] bg-accent-gold/10 px-2 py-0.5 rounded-full">
-                    <Lock className="w-2.5 h-2.5" /> STARTER+
-                  </span>
-                )}
-              </label>
-              {limits.wav_upload ? (
-                <input name="wavFile" type="file" accept="audio/wav,audio/x-wav" onChange={handleFileChange}
-                  className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-widest file:bg-white/5 file:text-white hover:file:bg-white/10 transition-all w-full" />
-              ) : (
-                <div className="p-4 rounded-xl bg-bg-primary border border-border-subtle flex items-center justify-between">
-                  <p className="text-xs text-text-muted">Unlock WAV uploads with Starter or PRO</p>
-                  <Link href="/dashboard/subscription" className="text-xs text-accent-gold font-bold hover:underline">Upgrade →</Link>
-                </div>
-              )}
             </div>
 
             {/* Stems — PRO only */}

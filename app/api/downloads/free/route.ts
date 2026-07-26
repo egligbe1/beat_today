@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     //    producer_id is derived from the record, never trusted from the client.
     const { data: beat } = await supabaseAdmin
       .from('beats')
-      .select('id, title, producer_id, is_free, status, file_mp3_url, watermarked_preview_url')
+      .select('id, title, producer_id, is_free, status, file_mp3_url, file_wav_url, watermarked_preview_url')
       .eq('id', beat_id)
       .single()
 
@@ -58,11 +58,13 @@ export async function POST(request: Request) {
       source: 'FREE_DOWNLOAD',
     })
 
-    // 3. Sign a short-lived URL for the free master.
-    if (!beat.file_mp3_url) {
+    // 3. Sign a short-lived URL for the free master (MP3 or WAV — whichever
+    //    format the producer uploaded as their clean file).
+    const cleanFile = beat.file_mp3_url ?? beat.file_wav_url
+    if (!cleanFile) {
       return NextResponse.json({ error: 'Download file is not available' }, { status: 404 })
     }
-    const objectPath = deriveObjectPath(beat.file_mp3_url, 'beat-files')
+    const objectPath = deriveObjectPath(cleanFile, 'beat-files')
 
     const { data: signed, error: signError } = await supabaseAdmin.storage
       .from('beat-files')
