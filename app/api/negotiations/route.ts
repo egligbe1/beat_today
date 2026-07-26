@@ -1,5 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+
+const supabaseAdmin = createAdminClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 // POST /api/negotiations -> Create a new offer
 export async function POST(request: Request) {
@@ -11,20 +17,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { beat_id, producer_id, license_type, amount, message } = await request.json()
+    const { beat_id, license_type, amount, message } = await request.json()
 
-    if (!beat_id || !producer_id || !license_type || !amount) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const numericAmount = Number(amount)
+    if (!beat_id || !license_type || !numericAmount || numericAmount <= 0 || numericAmount > 1_000_000) {
+      return NextResponse.json({ error: 'Invalid offer details' }, { status: 400 })
+    }
+
+    // Derive producer_id from the beat record — never trust it from the client
+    // (prevents spoofing offers/notifications to arbitrary users).
+    const { data: beat } = await supabaseAdmin
+      .from('beats')
+      .select('id, producer_id, title')
+      .eq('id', beat_id)
+      .single()
+
+    if (!beat) {
+      return NextResponse.json({ error: 'Beat not found' }, { status: 404 })
+    }
+    if (beat.producer_id === user.id) {
+      return NextResponse.json({ error: 'You cannot make an offer on your own beat' }, { status: 400 })
     }
 
     const { data: offer, error } = await supabase
       .from('offers')
       .insert({
         buyer_id: user.id,
-        producer_id,
+        producer_id: beat.producer_id,
         beat_id,
         license_type,
-        amount,
+        amount: numericAmount,
         message,
         status: 'PENDING'
       })
@@ -33,19 +55,19 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    // Create a notification for the producer
-    await supabase.from('notifications').insert({
-      user_id: producer_id,
+    // Notify the true beat owner (service role — cross-user insert).
+    await supabaseAdmin.from('notifications').insert({
+      user_id: beat.producer_id,
       type: 'new_offer',
       title: 'New Offer Received!',
-      body: `You received an offer of $${amount} for a ${license_type} license.`,
+      body: `You received an offer of $${numericAmount} for a ${license_type} license on "${beat.title}".`,
       link: '/dashboard/offers'
     })
 
     return NextResponse.json({ offer })
   } catch (error: any) {
     console.error('Error creating offer:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Could not create offer' }, { status: 500 })
   }
 }
 

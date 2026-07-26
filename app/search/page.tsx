@@ -3,6 +3,21 @@ import BeatCard from '@/components/beats/BeatCard'
 import Link from 'next/link'
 import { Search as SearchIcon, Music } from 'lucide-react'
 import SearchFiltersPanel from './SearchFiltersPanel'
+import type { Metadata } from 'next'
+
+export function generateMetadata({ searchParams }: { searchParams: { q?: string; genre?: string } }): Metadata {
+  const q = searchParams.q?.trim()
+  const genre = searchParams.genre && searchParams.genre !== 'All' ? searchParams.genre : undefined
+  const title = q
+    ? `Search: "${q}" — Beats`
+    : genre
+      ? `${genre} Beats`
+      : 'Search Beats'
+  return {
+    title,
+    description: 'Search thousands of beats by title, producer, genre, mood, and BPM. Find your next hit on BeatToday.',
+  }
+}
 
 export default async function SearchPage({
   searchParams,
@@ -24,10 +39,16 @@ export default async function SearchPage({
     .select('*')
 
   if (query) {
-    // Search across title, producer handle, producer display name, genre, and mood
-    beatsQuery = beatsQuery.or(
-      `title.ilike.%${query}%,producer_handle.ilike.%${query}%,producer_display_name.ilike.%${query}%,genre.ilike.%${query}%,mood_tags.cs.{${query}}`
-    )
+    // Strip characters that are significant in PostgREST filter/or() syntax
+    // (commas, parens, braces, wildcards, backslashes) to avoid breaking or
+    // injecting into the filter expression. Also cap length.
+    const safeQuery = query.replace(/[,()%{}\\*]/g, '').trim().slice(0, 100)
+    if (safeQuery) {
+      // Search across title, producer handle, producer display name, genre, and mood
+      beatsQuery = beatsQuery.or(
+        `title.ilike.%${safeQuery}%,producer_handle.ilike.%${safeQuery}%,producer_display_name.ilike.%${safeQuery}%,genre.ilike.%${safeQuery}%,mood_tags.cs.{${safeQuery}}`
+      )
+    }
   }
 
   if (genre !== 'All') beatsQuery = beatsQuery.eq('genre', genre)

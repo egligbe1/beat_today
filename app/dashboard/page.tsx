@@ -49,7 +49,7 @@ export default async function DashboardOverview() {
         .eq('buyer_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5),
-      supabase.from('beat_favorites').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('favorites').select('beat_id', { count: 'exact', head: true }).eq('user_id', user.id),
       supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', user.id),
       supabase.from('notifications').select('id').eq('user_id', user.id).eq('is_read', false),
     ])

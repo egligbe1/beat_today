@@ -8,6 +8,16 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { TrendingUp, Users, ArrowRight, Music } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'BeatToday — Buy Beats & License Instrumentals',
+  description: 'Discover, stream, and license beats from independent producers worldwide. Instant delivery, clear licensing, and secure checkout.',
+  openGraph: {
+    title: 'BeatToday — Buy Beats & License Instrumentals',
+    description: 'Discover, stream, and license beats from independent producers worldwide.',
+  },
+}
 
 const HeroCarousel = dynamic(() => import('@/components/home/HeroCarousel'), { 
   loading: () => <div className="w-full h-[300px] sm:h-[500px] bg-zinc-950 animate-pulse" />

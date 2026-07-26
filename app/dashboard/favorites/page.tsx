@@ -14,9 +14,8 @@ export default async function FavoritesPage() {
 
   // Fetch favorites with beat details
   const { data: favorites, error } = await supabase
-    .from('beat_favorites')
+    .from('favorites')
     .select(`
-      id,
       beat_id,
       beats (
         *,

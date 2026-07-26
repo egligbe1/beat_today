@@ -42,6 +42,7 @@ export async function GET(req: Request) {
       }
 
       const conversionRate = Number(metadata.conversion?.conversion_rate) || 1
+      const payoutRatio = Number(metadata.conversion?.payout_ratio) || 1
       const cartItems = metadata.cart_items || []
 
       // Attempt full order fulfillment.
@@ -53,6 +54,8 @@ export async function GET(req: Request) {
         reference,
         buyerEmail: transaction.customer?.email,
         conversionRate,
+        payoutRatio,
+        promoCodeId: metadata.promo_code_id || null,
       })
 
       return NextResponse.json({ success: true, order_id: orderId })

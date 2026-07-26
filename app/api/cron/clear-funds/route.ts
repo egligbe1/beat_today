@@ -23,8 +23,8 @@ export async function POST(req: Request) {
     const { data: pendingLedgers, error: fetchError } = await supabaseAdmin
         .from('ledger_transactions')
         .select('*')
-        .eq('status', 'pending')
-        .eq('type', 'sale')
+        .eq('status', 'PENDING')
+        .eq('type', 'SALE')
         .lte('created_at', cutoffDate)
         
     if (fetchError) throw fetchError

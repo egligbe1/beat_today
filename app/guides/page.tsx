@@ -1,5 +1,15 @@
 import Link from 'next/link'
 import { BookOpen, TrendingUp, DollarSign, Share2, Music2, Tag, Users, Zap } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Producer Guides & Resources',
+  description: 'Practical guides for music producers: how to price beats, grow your audience, license your work, and maximize revenue on BeatToday.',
+  openGraph: {
+    title: 'Producer Guides & Resources | BeatToday',
+    description: 'Practical guides for music producers: pricing, audience growth, licensing, and revenue.',
+  },
+}
 
 const GUIDES = [
   {

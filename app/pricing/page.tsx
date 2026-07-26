@@ -1,5 +1,15 @@
 import { Check, X, Shield, Zap, Crown, Sparkles, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Pricing & Plans',
+  description: 'Simple, transparent pricing for producers. Keep more of every sale as you grow — from Free to Pro with 0% platform fees.',
+  openGraph: {
+    title: 'Pricing & Plans | BeatToday',
+    description: 'Simple, transparent pricing for producers. Keep more of every sale as you grow.',
+  },
+}
 
 const TIERS = [
   {

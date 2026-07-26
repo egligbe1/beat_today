@@ -80,9 +80,12 @@ export async function POST(req: Request) {
 
     if (!beat) throw new Error('Beat record not found')
 
-    // Auth check
+    // Auth check. The internal (cron/queue) bypass requires a configured
+    // CRON_SECRET — never a guessable default, which would let anyone trigger
+    // expensive FFmpeg jobs on any beat.
     const authHeader = req.headers.get('authorization')
-    const isInternal = authHeader === `Bearer ${process.env.CRON_SECRET || 'internal'}`
+    const cronSecret = process.env.CRON_SECRET
+    const isInternal = !!cronSecret && authHeader === `Bearer ${cronSecret}`
     if (!isInternal) {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()

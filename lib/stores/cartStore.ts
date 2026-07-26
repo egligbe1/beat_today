@@ -34,22 +34,21 @@ export const useCartStore = create<CartState>()(
       items: [],
       isOpen: false,
 
+      // Keep the `set` updater pure — fire side effects (toasts) after it, so
+      // React 18 StrictMode double-invocation can't emit duplicate toasts.
       addItem: (item) => {
-        set((state) => {
-          // Check if beat already in cart
-          const existingItemIndex = state.items.findIndex((i) => i.beat_id === item.beat_id)
-          
-          if (existingItemIndex >= 0) {
-            // Upgrade/Change license if already in cart
-            const newItems = [...state.items]
-            newItems[existingItemIndex] = item
-            showToast.success(`Updated ${item.title} license to ${item.license_type}`)
-            return { items: newItems, isOpen: true }
-          }
-          
+        const state = get()
+        const existingItemIndex = state.items.findIndex((i) => i.beat_id === item.beat_id)
+
+        if (existingItemIndex >= 0) {
+          const newItems = [...state.items]
+          newItems[existingItemIndex] = item
+          set({ items: newItems, isOpen: true })
+          showToast.success(`Updated ${item.title} license to ${item.license_type}`)
+        } else {
+          set({ items: [...state.items, item], isOpen: true })
           showToast.success(`Added ${item.title} to cart`)
-          return { items: [...state.items, item], isOpen: true }
-        })
+        }
       },
 
       removeItem: (beat_id) => {
@@ -69,6 +68,9 @@ export const useCartStore = create<CartState>()(
     {
       name: 'beattoday-cart', // name of the item in the storage (must be unique)
       storage: createJSONStorage(() => localStorage), // (optional) by default, 'localStorage' is used
+      // Only persist the cart contents — never the drawer's open state, which
+      // would otherwise pop the cart open on every reload.
+      partialize: (state) => ({ items: state.items }),
     }
   )
 )

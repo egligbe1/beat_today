@@ -62,8 +62,58 @@ export async function POST(request: Request) {
     })
 
     const subtotal = validatedOrderItems.reduce((sum: number, item: any) => sum + Number(item.price), 0)
-    const appliedDiscount = Math.min(Number(discount_amount) || 0, subtotal)
-    const totalAmount = Math.max(0, subtotal - appliedDiscount)
+
+    // --- Server-authoritative promo validation ---
+    // NEVER trust a client-supplied discount amount. Re-derive it from the
+    // promo record against the server-computed subtotal.
+    let appliedDiscount = 0
+    let validatedPromoId: string | null = null
+    if (promo_code) {
+      const code = String(promo_code).toUpperCase().replace(/\s+/g, '')
+      const { data: promo } = await supabaseAdmin
+        .from('promo_codes')
+        .select('*')
+        .eq('code', code)
+        .eq('is_active', true)
+        .single()
+
+      const now = new Date()
+      const isValid =
+        promo &&
+        (!promo.expires_at || new Date(promo.expires_at) > now) &&
+        (promo.max_uses === null || (promo.uses_count || 0) < promo.max_uses) &&
+        subtotal >= (promo.min_order_amount || 0)
+
+      if (!isValid) {
+        return NextResponse.json({ error: 'Invalid, expired, or ineligible promo code' }, { status: 400 })
+      }
+
+      appliedDiscount =
+        promo.discount_type === 'percentage'
+          ? (subtotal * Number(promo.discount_value)) / 100
+          : Number(promo.discount_value)
+      appliedDiscount = Math.max(0, Math.min(appliedDiscount, subtotal))
+      appliedDiscount = Math.round(appliedDiscount * 100) / 100
+      validatedPromoId = promo.id
+    }
+
+    const totalAmount = Math.max(0, Math.round((subtotal - appliedDiscount) * 100) / 100)
+
+    // --- Atomically reserve exclusive licenses to prevent double-sale ---
+    for (const item of validatedOrderItems) {
+      if (item.license_type === 'exclusive') {
+        const { data: reserved, error: reserveError } = await supabaseAdmin.rpc('reserve_exclusive_beat', {
+          p_beat_id: item.beat_id,
+        })
+        if (reserveError || !reserved) {
+          return NextResponse.json(
+            { error: `Exclusive license for "${item.title || 'this beat'}" is currently reserved or sold.` },
+            { status: 409 }
+          )
+        }
+      }
+    }
+
     const tx_ref = `BT-${Date.now()}-${Math.floor(Math.random() * 10000)}`
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -74,7 +124,7 @@ export async function POST(request: Request) {
         status: 'pending',
         gateway: 'paystack',
         gateway_reference: tx_ref,
-        ...(promo_code ? { promo_code_id: promo_code, discount_amount: appliedDiscount } : {})
+        ...(validatedPromoId ? { promo_code_id: validatedPromoId, discount_amount: appliedDiscount } : {})
       })
       .select()
       .single()
@@ -121,12 +171,16 @@ export async function POST(request: Request) {
            title: item.title,
            license_type: item.license_type
         })),
+        promo_code_id: validatedPromoId,
         conversion: {
             checkout_currency: 'GHS',
             conversion_rate: rate,
             original_usd_subtotal: subtotal,
             discount_usd: appliedDiscount,
-            original_usd_total: totalAmount
+            original_usd_total: totalAmount,
+            // Fraction of full price actually collected — producers are paid on
+            // this, so the platform doesn't absorb the buyer's discount.
+            payout_ratio: subtotal > 0 ? totalAmount / subtotal : 1
         }
       }
     }

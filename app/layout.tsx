@@ -28,11 +28,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'BeatToday | The Premium Beat Marketplace',
     description: 'License high-quality instrumentals from top global producers.',
-    url: 'https://beattoday.com',
+    url: siteUrl,
     siteName: 'BeatToday',
     images: [
       {
-        url: 'https://beattoday.com/og-image.jpg',
+        url: '/og-image.jpg',
         width: 1200,
         height: 630,
         alt: 'BeatToday Marketplace',
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'BeatToday | The Premium Beat Marketplace',
     description: 'License high-quality instrumentals to power your next hit.',
-    images: ['https://beattoday.com/og-image.jpg'],
+    images: ['/og-image.jpg'],
   },
   icons: {
     icon: '/icon.webp',

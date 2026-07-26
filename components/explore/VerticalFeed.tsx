@@ -14,6 +14,7 @@ import QuickLicensePicker from '@/components/beats/QuickLicensePicker'
 import Modal from '@/components/ui/Modal'
 import { formatDistanceToNow } from 'date-fns'
 import dynamic from 'next/dynamic'
+import { showToast } from '@/lib/utils/toast'
 
 const Turntable = dynamic(() => import('./Turntable'), { 
   ssr: false,
@@ -149,9 +150,11 @@ export default function VerticalFeed({
   useEffect(() => {
     // Check onboarding hint
     const hasSeen = localStorage.getItem('explore_hint_seen')
+    let hintTimer: ReturnType<typeof setTimeout> | undefined
     if (!hasSeen) {
       setShowHint(true)
-      // Hide hint after 5 seconds or on scroll
+      // Auto-dismiss after 5 seconds (also dismissed on first scroll below)
+      hintTimer = setTimeout(() => setShowHint(false), 5000)
     }
 
     const observer = new IntersectionObserver(
@@ -173,7 +176,10 @@ export default function VerticalFeed({
     const elements = document.querySelectorAll('.feed-item')
     elements.forEach((el) => observer.observe(el))
 
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      if (hintTimer) clearTimeout(hintTimer)
+    }
   }, [initialBeats])
 
   useEffect(() => {
@@ -366,7 +372,7 @@ function EnhancedTikTokItem({
         await navigator.share(shareData)
       } else {
         await navigator.clipboard.writeText(shareUrl)
-        alert('Link copied to clipboard!')
+        showToast.success('Link copied to clipboard!')
       }
     } catch (e) {
       console.error("Share error", e)

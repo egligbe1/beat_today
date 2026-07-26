@@ -131,7 +131,7 @@ export default async function UserProfilePage({ params }: { params: { handle: st
   } else {
     // ---- ARTIST VIEW LOGIC ----
     const { data: favorites } = await supabase
-      .from('beat_favorites')
+      .from('favorites')
       .select(`
         beats (
           *,
