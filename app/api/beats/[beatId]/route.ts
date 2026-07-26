@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { deleteObjects, R2_PUBLIC_BUCKET, R2_PRIVATE_BUCKET } from '@/lib/r2'
 
 export async function DELETE(
   req: Request,
@@ -53,41 +54,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // 4. Extract storage paths
-    const normalizePath = (val: string | null) => {
+    // 4. Delete objects from R2.
+    //  - Private (masters/stems) are stored as bare object keys.
+    //  - Public (preview/cover) are stored as full public URLs → derive the key.
+    const keyFromPublicUrl = (val: string | null): string | null => {
       if (!val) return null
-      if (val.startsWith('http')) {
-        try {
-          const url = new URL(val)
-          const match = url.pathname.match(/\/storage\/v1\/object\/(?:public|sign)\/[^/]+\/(.+)/)
-          return match ? decodeURIComponent(match[1]) : null
-        } catch { return null }
-      }
-      return val
+      try { return decodeURIComponent(new URL(val).pathname).replace(/^\/+/, '') } catch { return null }
     }
 
-    const filesToDelete = {
-      'beat-files': [
-        normalizePath(beat.file_mp3_url),
-        normalizePath(beat.file_wav_url),
-        normalizePath(beat.file_stems_url)
-      ].filter(Boolean) as string[],
-      'beat-previews': [
-        normalizePath(beat.mp3_preview_url)
-      ].filter(Boolean) as string[],
-      'beat-covers': [
-        normalizePath(beat.cover_url)
-      ].filter(Boolean) as string[]
-    }
+    const privateKeys = [beat.file_mp3_url, beat.file_wav_url, beat.file_stems_url].filter(Boolean) as string[]
+    const publicKeys = [keyFromPublicUrl(beat.mp3_preview_url), keyFromPublicUrl(beat.cover_url)].filter(Boolean) as string[]
 
-    // 5. Delete from Storage
-    await Promise.all(
-      Object.entries(filesToDelete).map(async ([bucket, paths]) => {
-        if (paths.length > 0) {
-          await supabaseAdmin.storage.from(bucket).remove(paths)
-        }
-      })
-    )
+    // 5. Delete from Storage (best-effort; never block the DB delete on it)
+    await Promise.all([
+      deleteObjects(R2_PRIVATE_BUCKET, privateKeys).catch(e => console.error('R2 private delete failed:', e)),
+      deleteObjects(R2_PUBLIC_BUCKET, publicKeys).catch(e => console.error('R2 public delete failed:', e)),
+    ])
 
     // 6. Delete from Database
     const { error: deleteError } = await supabaseAdmin

@@ -1,25 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { presignDownload } from '@/lib/r2'
 
-// Service-role client — required to read the private `beat-files` bucket and to
-// insert audience rows regardless of RLS. Never expose this key client-side.
+// Service-role client — used to look up the beat and record the audience row
+// regardless of RLS. Never expose this key client-side.
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// Derive the storage object path (relative to the bucket) from whatever is
-// stored in file_mp3_url — a bare key, a nested path, or a full URL.
-function deriveObjectPath(stored: string, bucket: string): string {
-  const marker = `/${bucket}/`
-  const idx = stored.indexOf(marker)
-  if (idx !== -1) return stored.slice(idx + marker.length).split('?')[0]
-  // Not a full URL containing the bucket — treat as an object key as-is
-  // (preserving any nested folders), dropping any leading slash.
-  return stored.replace(/^\/+/, '').split('?')[0]
-}
 
 // POST /api/downloads/free — lead-gated download for FREE beats only.
 export async function POST(request: Request) {
@@ -64,18 +54,18 @@ export async function POST(request: Request) {
     if (!cleanFile) {
       return NextResponse.json({ error: 'Download file is not available' }, { status: 404 })
     }
-    const objectPath = deriveObjectPath(cleanFile, 'beat-files')
 
-    const { data: signed, error: signError } = await supabaseAdmin.storage
-      .from('beat-files')
-      .createSignedUrl(objectPath, 60 * 10) // 10-minute expiry
-
-    if (signError || !signed?.signedUrl) {
-      console.error('Free download sign error:', signError)
+    try {
+      const ext = (cleanFile.split('.').pop() || 'mp3').toLowerCase()
+      const url = await presignDownload(cleanFile, {
+        expiresIn: 60 * 10, // 10 minutes
+        filename: `${beat.title || 'beat'}.${ext}`,
+      })
+      return NextResponse.json({ success: true, url })
+    } catch (err) {
+      console.error('Free download sign error:', err)
       return NextResponse.json({ error: 'Could not generate download link' }, { status: 500 })
     }
-
-    return NextResponse.json({ success: true, url: signed.signedUrl })
   } catch (error) {
     console.error('Free download error:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Upload, Lock, AlertCircle, CheckCircle2, Save, Loader2, X } from 'lucide-react'
 import { getTierLimits } from '@/lib/tierLimits'
 import { convertToWebP } from '@/lib/utils/storageUtils'
+import { uploadToR2 } from '@/lib/r2Upload'
 import { useAuth } from '@/components/providers/AuthProvider'
 
 const GENRES = [
@@ -176,6 +177,7 @@ export default function UploadPage() {
 
       if (atLimit) throw new Error(`Limit reached on ${tier.toUpperCase()} plan.`)
 
+      if (!files.cover) throw new Error('Please upload cover art')
       if (!files.mp3Clean) throw new Error('Please upload your beat (MP3 or WAV)')
 
       // Accept the clean master as MP3 or WAV. It is the single file the producer
@@ -184,38 +186,17 @@ export default function UploadPage() {
       const cleanIsWav = files.mp3Clean.type.includes('wav') || files.mp3Clean.name.toLowerCase().endsWith('.wav')
       const cleanExt = cleanIsWav ? 'wav' : 'mp3'
 
-      const fileTasks = [
-        { name: 'cover', bucket: 'beat-covers', path: `${user.id}/${beatId}-cover-${Date.now()}.webp` },
-        // Single clean master (MP3 or WAV) — sold file AND watermark source.
-        { name: 'mp3Clean', bucket: 'beat-files', path: `${user.id}/${beatId}-clean.${cleanExt}` },
-        ...(limits.stems_upload && files.stemsZip ? [{ name: 'stemsZip', bucket: 'beat-files', path: `${user.id}/${beatId}-stems.zip` }] : []),
-      ]
+      // Upload all files directly to R2 via presigned URLs (parallel).
+      const coverWebp = await convertToWebP(files.cover!).catch(() => files.cover!)
+      const [coverRes, masterRes, stemsRes] = await Promise.all([
+        uploadToR2({ purpose: 'cover', file: coverWebp, beatId, ext: 'webp', contentType: 'image/webp' }),
+        uploadToR2({ purpose: 'master', file: files.mp3Clean, beatId, ext: cleanExt, contentType: files.mp3Clean.type || 'audio/mpeg' }),
+        (limits.stems_upload && files.stemsZip)
+          ? uploadToR2({ purpose: 'stems', file: files.stemsZip, beatId, ext: 'zip', contentType: files.stemsZip.type || 'application/zip' })
+          : Promise.resolve(null),
+      ])
 
-      const uploadResults: Record<string, string> = {}
-      const storagePaths: Record<string, string> = {}
-
-      await Promise.all(fileTasks.map(async (task) => {
-        let file = (files as any)[task.name]
-        if (!file) return
-
-        if (task.name === 'cover') {
-          try { file = await convertToWebP(file) } catch (err) {}
-        }
-
-        const { data, error: uploadError } = await supabase.storage
-          .from(task.bucket)
-          .upload(task.path, file, { upsert: true })
-        
-        if (uploadError) throw uploadError
-
-        storagePaths[task.name] = task.path
-        if (task.bucket === 'beat-covers' || task.bucket === 'beat-previews') {
-          const { data: { publicUrl } } = supabase.storage.from(task.bucket).getPublicUrl(task.path)
-          uploadResults[task.name] = publicUrl
-        } else {
-          uploadResults[task.name] = data.path
-        }
-      }))
+      const masterKey = masterRes.key
 
       // Update beat with files and set status to 'pending'
       const { error: dbError } = await supabase.from('beats').upsert({
@@ -231,13 +212,12 @@ export default function UploadPage() {
         price_trackout: limits.stems_upload && !form.is_free ? parseFloat(form.price_trackout) : null,
         price_exclusive: form.is_free ? null : parseFloat(form.price_exclusive),
         is_free: form.is_free,
-        cover_url: uploadResults.cover || undefined,
-        // Store the clean master in the column matching its real format. The
-        // download route serves whichever clean file exists for any purchased
-        // license, so the buyer always gets a correctly-labeled file.
-        file_mp3_url: cleanIsWav ? undefined : (uploadResults.mp3Clean || undefined),
-        file_wav_url: cleanIsWav ? (uploadResults.mp3Clean || undefined) : undefined,
-        file_stems_url: uploadResults.stemsZip || undefined,
+        cover_url: coverRes.publicUrl || undefined,
+        // Private R2 keys — the download route presigns them per purchase. Store
+        // the clean master in the column matching its real format.
+        file_mp3_url: cleanIsWav ? undefined : masterKey,
+        file_wav_url: cleanIsWav ? masterKey : undefined,
+        file_stems_url: stemsRes?.key || undefined,
         status: 'pending', // IMPORTANT: Moved to pending while watermarking
       })
 
@@ -263,11 +243,11 @@ export default function UploadPage() {
 
       // Auto-generate the tagged preview from the clean master the producer
       // just uploaded — no separate "preview" file required.
-      if (storagePaths.mp3Clean) {
+      if (masterKey) {
         await fetch('/api/audio/queue-watermark', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ beat_id: beatId, storage_path: storagePaths.mp3Clean }),
+          body: JSON.stringify({ beat_id: beatId, storage_path: masterKey }),
         })
       }
 

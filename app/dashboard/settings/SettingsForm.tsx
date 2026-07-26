@@ -11,6 +11,7 @@ import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { showToast } from '@/lib/utils/toast'
 import { convertToWebP } from '@/lib/utils/storageUtils'
+import { uploadToR2 } from '@/lib/r2Upload'
 
 const VERIFY_SUPPORTED = new Set(['Nigeria'])
 const AUTO_VERIFY_COUNTRIES = new Set(['Nigeria', 'Ghana', 'Kenya', 'South Africa'])
@@ -137,18 +138,15 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
     setEditMode(false)
   }
 
-  // Check for existing custom tag
+  // Check for existing custom tag (server checks R2; browser can't list)
   useEffect(() => {
     if (isPro && profile?.id) {
-      supabase.storage.from('beat-previews').list(`producer-tags/${profile.id}`)
-        .then(({ data }) => {
-          if (data?.find(f => f.name === 'tag.mp3')) {
-            const { data: { publicUrl } } = supabase.storage.from('beat-previews').getPublicUrl(`producer-tags/${profile.id}/tag.mp3`)
-            setCustomTagUrl(`${publicUrl}?t=${Date.now()}`)
-          }
-        })
+      fetch('/api/producer-tag')
+        .then(r => r.json())
+        .then(d => { if (d.url) setCustomTagUrl(`${d.url}?t=${Date.now()}`) })
+        .catch(() => {})
     }
-  }, [isPro, profile?.id, supabase])
+  }, [isPro, profile?.id])
 
   // Fetch banks when country changes (bank tab)
   useEffect(() => {
@@ -211,10 +209,8 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
         console.warn('WebP conversion failed, falling back to original format:', err)
       }
 
-      const fileName = `${profile.id}-${Date.now()}.webp`
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
-      if (uploadError) throw uploadError
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
+      const { publicUrl } = await uploadToR2({ purpose: 'avatar', file, ext: 'webp', contentType: 'image/webp' })
+      if (!publicUrl) throw new Error('Upload failed')
       setForm(prev => ({ ...prev, avatar_url: publicUrl }))
       await supabase.from('users_profiles').update({ avatar_url: publicUrl }).eq('id', profile.id)
     } catch (err: any) {
@@ -237,11 +233,8 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
         throw new Error('Tag file must be under 2MB.')
       }
 
-      const fileName = `producer-tags/${profile.id}/tag.mp3`
-      const { error: uploadError } = await supabase.storage.from('beat-previews').upload(fileName, file, { upsert: true })
-      if (uploadError) throw uploadError
-
-      const { data: { publicUrl } } = supabase.storage.from('beat-previews').getPublicUrl(fileName)
+      const { publicUrl } = await uploadToR2({ purpose: 'producerTag', file, ext: 'mp3', contentType: 'audio/mpeg' })
+      if (!publicUrl) throw new Error('Upload failed')
       setCustomTagUrl(`${publicUrl}?t=${Date.now()}`)
       showToast.success('Custom tag uploaded!')
     } catch (err: any) {
