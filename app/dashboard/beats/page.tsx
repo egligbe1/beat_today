@@ -78,10 +78,16 @@ export default function ProducerBeatsDashboard() {
       const response = await fetch(`/api/beats/${beatToDelete.id}`, {
         method: 'DELETE',
       })
-      
-      const result = await response.json()
-      
-      // If the response is not OK and it's NOT a success result (our API now returns success: true for missing beats)
+
+      // Guard against non-JSON responses (e.g. an HTML error page from a stale
+      // server) so we surface a clear message instead of a JSON parse error.
+      const text = await response.text()
+      let result: any = {}
+      try { result = text ? JSON.parse(text) : {} } catch {
+        throw new Error('Unexpected server response. Please refresh and try again.')
+      }
+
+      // Our API returns success: true even for already-removed beats.
       if (!response.ok && !result.success) {
         throw new Error(result.error || 'Failed to delete')
       }
