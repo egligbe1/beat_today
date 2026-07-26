@@ -3,6 +3,12 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   images: {
+    // Render's small single instance is CPU-bound; its on-the-fly image
+    // optimizer chokes when a page loads many images at once (the homepage was
+    // requesting 3840px-wide variants and stalling for minutes). We already
+    // store reasonably-sized webp on R2 (free egress), so serve them directly
+    // and skip the optimizer entirely.
+    unoptimized: true,
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400, // 24h CDN cache for images
     remotePatterns: [
