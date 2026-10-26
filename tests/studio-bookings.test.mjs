@@ -24,7 +24,7 @@ test('booking-first workflow with conflict, privacy and agreement guards',async 
  async function as(uid,fn,role='authenticated'){await db.exec(`SET ROLE ${role}`);await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[uid||'']);try{return await fn()}finally{await db.exec('RESET ROLE')}}
  const command=(uid,action,payload)=>as(uid,async()=>{const r=await db.query('SELECT studio_booking_command($1,$2) AS r',[action,payload]);return r.rows[0].r})
  const core=(uid,action,payload,project=null)=>as(uid,async()=>{const r=await db.query('SELECT studio_command($1,$2,$3) AS r',[action,project,payload]);return r.rows[0].r})
- const catalog=()=>as(null,async()=>(await db.query("SELECT studio_booking_catalog('producer') AS c")).rows[0].c,'anon')
+ const catalog=(uid=null)=>as(uid,async()=>(await db.query("SELECT studio_booking_catalog('producer') AS c")).rows[0].c,uid?'authenticated':'anon')
  const slots=(service,day)=>as(null,async()=>(await db.query('SELECT studio_booking_slots($1,$2) AS s',[service,day])).rows[0].s,'anon')
  const row=async(table,uid)=>(await db.query(`SELECT * FROM ${table} WHERE id=$1`,[uid])).rows[0]
  const studio=(await core(owner,'create_studio',{name:'Booking Studio',city:'Accra',timezone:'Africa/Accra'})).id
@@ -37,8 +37,15 @@ test('booking-first workflow with conflict, privacy and agreement guards',async 
   service=(await command(owner,'create_service',{room_id:room,title:'Vocal session',description:'Recording and vocal production.',duration_minutes:60,buffer_minutes:15,price_minor:20000,service_type:'RECORDING'})).id
   await command(owner,'save_hours',{room_id:room,weekly:Array.from({length:7},(_,weekday)=>({weekday,opens:'09:00',closes:'18:00',closed:false}))})
   assert.equal(await catalog(),null)
+  assert.equal(await catalog(artist),null)
+  assert.equal((await catalog(owner)).is_public,false)
   await command(owner,'publish',{is_public:true,notice_hours:0,horizon_days:90})
   const c=await catalog();assert.equal(c.services[0].price_minor,20000);assert.equal(c.name,'Booking Studio');assert.equal(c.notes,undefined)
+  assert.deepEqual(await catalog(artist),c)
+  await command(owner,'toggle_service',{service_id:service,is_active:false})
+  assert.equal((await catalog()).services.length,0)
+  assert.equal((await catalog(artist)).services.length,0)
+  await command(owner,'toggle_service',{service_id:service,is_active:true})
   day=(await db.query("SELECT ((now() AT TIME ZONE 'Africa/Accra')::DATE+2)::TEXT AS day")).rows[0].day
   available=await slots(service,day);assert.ok(available.length>5)
   assert.equal(new Date(available[0]).getUTCHours(),9);assert.equal(new Date(available[0]).getUTCMinutes(),15)
@@ -121,7 +128,7 @@ test('booking-first workflow with conflict, privacy and agreement guards',async 
  })
  await t.test('PRO expiry closes public intake without removing booking history',async()=>{
   await db.query("UPDATE producer_settings SET subscription_expires_at=now()-interval '1 day' WHERE user_id=$1",[owner])
-  assert.equal(await catalog(),null);assert.deepEqual(await slots(service,day),[])
+  assert.equal(await catalog(),null);assert.equal(await catalog(artist),null);assert.deepEqual(await slots(service,day),[])
   await assert.rejects(command(owner,'create_room',{name:'Extra room'}),/PRO/)
   await as(artist,async()=>assert.ok((await db.query('SELECT * FROM studio_bookings')).rows.length>0))
  })

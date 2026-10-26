@@ -1,5 +1,6 @@
+import StudioBookingEntry from '@/components/studio/StudioBookingEntry'
 import Link from 'next/link'
-import { bookingCatalog } from '@/lib/studio/bookingData'
+import { profileBookingCatalog } from '@/lib/studio/bookingData'
 import { safeExternalUrl } from '@/lib/security'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
@@ -104,7 +105,7 @@ export default async function UserProfilePage(props: { params: Promise<{ handle:
         .select('*')
         .eq('producer_id', profile.id)
         .eq('is_active', true),
-      bookingCatalog(cleanHandle),
+      profileBookingCatalog(cleanHandle),
     ])
     const beats = beatsRes.data
     const services = servicesRes.data
@@ -131,7 +132,7 @@ export default async function UserProfilePage(props: { params: Promise<{ handle:
     const producerRating = totalReviews > 0 ? avgRating.toFixed(1) : "5.0"
 
     return renderProducerProfile({
-      profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services, studioCatalog
+      profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services, studioCatalog, viewerId
     })
   } else {
     // ---- ARTIST VIEW LOGIC ----
@@ -155,7 +156,7 @@ export default async function UserProfilePage(props: { params: Promise<{ handle:
   }
 }
 
-function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services, studioCatalog }: any) {
+function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services, studioCatalog, viewerId }: any) {
   return (
     <div className="min-h-screen bg-bg-primary">
       {/* Premium Header/Banner */}
@@ -228,12 +229,16 @@ function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlay
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto pt-6 md:pt-0">
-                {studioCatalog?.is_public && studioCatalog.services.length > 0 && <Link href={`/studio/${profile.handle}`} className="h-14 px-8 inline-flex items-center justify-center bg-[#FF5500] text-white font-bold rounded-2xl w-full sm:w-auto">Book studio</Link>}
+                <Link href="#studio-booking" className="h-14 px-8 inline-flex items-center justify-center bg-[#FF5500] text-white font-bold rounded-2xl w-full sm:w-auto">Book studio</Link>
                 <FollowButton followingId={profile.id} initialIsFollowing={isFollowing} className="h-14 px-10 text-sm font-black uppercase tracking-widest rounded-2xl w-full sm:w-auto" />
                 <ContactButton producerId={profile.id} className="h-14 px-8 text-sm font-black uppercase tracking-widest rounded-2xl w-full sm:w-auto border-2 border-white/10 bg-white/5 backdrop-blur-xl hover:bg-white/10" />
             </div>
           </div>
         </div>
+      </div>
+
+      <div id="studio-booking" className="max-w-7xl mx-auto px-4 pt-8 scroll-mt-24">
+        <StudioBookingEntry profile={profile} catalog={studioCatalog} owner={viewerId === profile.id} />
       </div>
 
       {/* Profile Navigation & Content */}

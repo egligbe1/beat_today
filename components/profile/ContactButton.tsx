@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 
 import { showToast } from '@/lib/utils/toast'
 
-export default function ContactButton({ producerId, className }: { producerId: string, className?: string }) {
+export default function ContactButton({ producerId, className, initialMessage = 'Hi! I wanted to reach out about your beats.' }: { producerId: string, className?: string, initialMessage?: string }) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -23,7 +23,7 @@ export default function ContactButton({ producerId, className }: { producerId: s
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient_id: producerId, content: 'Hi! I wanted to reach out about your beats.' })
+        body: JSON.stringify({ recipient_id: producerId, content: initialMessage })
       })
       const data = await res.json()
       if (!res.ok || !data.conversation_id) throw new Error('Unable to start conversation')

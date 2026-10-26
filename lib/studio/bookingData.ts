@@ -9,6 +9,14 @@ export async function bookingCatalog(handle: string) {
  if (result.error) throw new Error('Studio booking page could not be loaded')
  return result.data as StudioBookingCatalog | null
 }
+// Keep the public producer profile usable if studio intake is unavailable.
+export async function profileBookingCatalog(handle: string) {
+ try { return await bookingCatalog(handle) }
+ catch (error) {
+  console.error('Public studio catalog unavailable', error)
+  return null
+ }
+}
 export async function bookingWorkspace(userId: string, studioId: string, today: string) {
  const db = await createClient()
  const [bookings, rooms, services, hours, blocks] = await Promise.all([

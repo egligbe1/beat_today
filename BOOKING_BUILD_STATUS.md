@@ -2,7 +2,9 @@
 
 The studio entry point is now the calendar and booking inbox. The earlier project
 and agreement implementation remains intact and follows a reserved session.
-Application deployment is in progress; the verified revision will be recorded here.
+Feature revision `613d6ac` and onboarding follow-up
+`d7aae631f03944fea857a6596e024d454cdc061e` deployed successfully on Render.
+The production build passed; the booking-first entry point is live.
 
 ## Working journey
 
@@ -75,3 +77,24 @@ no new definer/search-path or open-table advisory was introduced.
   emails and advanced calendar sync are separate implementation work.
 - Dashboard/history queries are bounded to 200 bookings/blocks; older records are
   retained. Pagination and larger-scale calendar reporting are subsequent work.
+
+
+Live smoke checks: anonymous booking writes return HTTP 401; availability for a
+nonexistent service returns HTTP 200 with an empty list; the main homepage returns
+HTTP 200 with catalog content. The signed-in studio entry point renders correctly.
+No production room, service, artist request or agreement was created as a test.
+Producers explicitly choose their service prices/hours and publish their own page.
+
+## Public profile booking discovery
+
+Producer profiles always show a Book studio entry and a dedicated studio section.
+Published studios with active services link to the service/time request flow.
+Unavailable studios offer contact without inventing times or prices; owners see
+setup guidance. Direct studio links show the same state for valid producers.
+Unknown handles and artist handles remain 404. Catalog failures no longer prevent
+the producer profile from rendering. No new SQL is required.
+
+Verified all 55 isolated tests, including authenticated/anonymous catalog parity,
+unpublished studio privacy, inactive services and PRO expiry. Desktop and 390px
+mobile visual checks cover published, unavailable and owner states using fictional
+local fixtures only. Production build uses dummy credentials.

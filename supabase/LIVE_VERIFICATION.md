@@ -184,3 +184,8 @@ an unauthenticated booking write, 200 with empty slots for a nonexistent service
 and 200 for the populated catalog homepage. The signed-in studio entry point loads
 without error. No production rooms, services, requests or agreements were seeded
 by the agent. See BOOKING_BUILD_STATUS.md for scope, tests and operational limits.
+
+Booking-first onboarding follow-up `d7aae631f03944fea857a6596e024d454cdc061e`
+also deployed successfully. New studios are guided through booking setup rather
+than an empty project list. No additional SQL or production-data operation was
+needed for that presentation change.
