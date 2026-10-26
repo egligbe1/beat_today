@@ -40,7 +40,7 @@ export default async function ConversationPage(props: { params: Promise<{ id: st
         <Link href="/messages" className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-text-muted hover:text-white">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div className="relative w-10 h-10 rounded-full overflow-hidden bg-bg-elevated flex-shrink-0">
+        <Link href={`/${encodeURIComponent(other?.handle||'')}`} aria-label={`View ${other?.display_name||'producer'} profile`} className="relative w-10 h-10 rounded-full overflow-hidden bg-bg-elevated flex-shrink-0 hover:ring-2 hover:ring-accent-orange transition-shadow">
           {other?.avatar_url ? (
             <Image src={other.avatar_url} alt={other.display_name} fill className="object-cover" />
           ) : (
@@ -48,10 +48,10 @@ export default async function ConversationPage(props: { params: Promise<{ id: st
               {other?.display_name?.[0] || '?'}
             </div>
           )}
-        </div>
+        </Link>
         <div>
-          <p className="font-bold text-white">{other?.display_name}</p>
-          <Link href={`/${other?.handle}`} className="text-xs text-accent-orange hover:underline">@{other?.handle}</Link>
+          <Link href={`/${encodeURIComponent(other?.handle||'')}`} className="block font-bold text-white hover:text-accent-orange">{other?.display_name}</Link>
+          <Link href={`/${encodeURIComponent(other?.handle||'')}`} className="block text-xs text-accent-orange hover:underline">@{other?.handle}</Link>
         </div>
       </div>
 

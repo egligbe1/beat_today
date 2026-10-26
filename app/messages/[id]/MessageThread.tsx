@@ -2,13 +2,14 @@
 import {useState,useEffect,useRef} from 'react'
 import {Send,Loader2,ArrowDown} from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import type {ChatMessage as Message} from '@/lib/types'
 import {mergeMessages,messageCursor} from '@/lib/messages'
 import {useLiveRefresh} from '@/lib/hooks/useLiveRefresh'
 
 interface Props {
  conversationId:string;currentUserId:string;initialMessages:Message[]
- otherUser:{id:string;display_name:string;avatar_url:string|null}
+ otherUser:{id:string;display_name:string;avatar_url:string|null;handle?:string}
 }
 export default function MessageThread({conversationId,currentUserId,initialMessages,otherUser}:Props) {
  const [messages,setMessages]=useState<Message[]>(initialMessages)
@@ -115,7 +116,7 @@ export default function MessageThread({conversationId,currentUserId,initialMessa
               return (
                 <div key={msg.id} className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
                   {!isMine && (
-                    <div className="relative w-8 h-8 rounded-full overflow-hidden bg-bg-elevated flex-shrink-0">
+                    <Link href={otherUser.handle?`/${encodeURIComponent(otherUser.handle)}`:`/messages/${conversationId}`} aria-label={`View ${otherUser.display_name} profile`} className="relative w-8 h-8 rounded-full overflow-hidden bg-bg-elevated flex-shrink-0 hover:ring-2 hover:ring-accent-orange">
                       {otherUser.avatar_url ? (
                         <Image src={otherUser.avatar_url} alt={otherUser.display_name} fill className="object-cover" />
                       ) : (
@@ -123,7 +124,7 @@ export default function MessageThread({conversationId,currentUserId,initialMessa
                           {otherUser.display_name?.[0]}
                         </div>
                       )}
-                    </div>
+                    </Link>
                   )}
                   <div
                     className={`max-w-[70%] px-4 py-3 rounded-2xl text-sm ${

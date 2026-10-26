@@ -95,7 +95,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-[100] w-full bg-black/60 backdrop-blur-3xl border-b border-white/5" style={{ height: '64px' }}>
-      <div className="h-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-3">
+      <div className="h-full max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 flex items-center gap-3">
 
         {/* ── Left: Logo + nav links ── */}
         <div className="flex items-center gap-3 flex-shrink-0">
@@ -131,7 +131,7 @@ export default function Navbar() {
         <div className="flex-1 md:hidden" />
 
         {/* ── Right: actions ── */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
 
           {/* Mobile search icon */}
           <Link
@@ -189,7 +189,7 @@ export default function Navbar() {
           </div>
 
           {/* Notification bell */}
-          {user && <NotificationBell />}
+          {user && <><NotificationBell userId={user.id} kind="messages"/><NotificationBell userId={user.id}/></>}
 
           {/* Cart */}
           <button

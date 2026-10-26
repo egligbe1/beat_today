@@ -4,7 +4,6 @@ import { useLiveRefresh } from '@/lib/hooks/useLiveRefresh'
 import { useEffect, useState, useRef } from 'react'
 import { Bell, X, CheckCheck, ShoppingBag, UserPlus, Star, DollarSign, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 
 interface Notification {
   id: string
@@ -32,39 +31,33 @@ function timeAgo(date: string) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
-export default function NotificationBell() {
-  const supabase = createClient()
+export default function NotificationBell({userId,kind='general'}:{userId:string;kind?:'general'|'messages'}) {
+  const isMessages=kind==='messages'
+  const title=isMessages?'Messages':'Notifications'
+  const Icon=isMessages?MessageCircle:Bell
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    let active=true
-    supabase.auth.getUser().then(({data})=>{if(active)setUser(data.user)})
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{if(active)setUser(session?.user||null)})
-    return()=>{active=false;subscription.unsubscribe()}
-  },[supabase])
-
   const requestNumber = useRef(0)
-  useEffect(()=>{++requestNumber.current;setNotifications([]);setUnreadCount(0);setLoading(true)},[user?.id])
+  useEffect(()=>{++requestNumber.current;setNotifications([]);setUnreadCount(0);setLoading(true)},[userId,kind])
   async function fetchNotifications() {
     const number=++requestNumber.current
     try {
-      const res=await fetch('/api/notifications',{cache:'no-store'})
+      const res=await fetch('/api/notifications?kind='+kind,{cache:'no-store'})
       const data=await res.json()
       if(res.ok&&number===requestNumber.current){setNotifications(data.notifications||[]);setUnreadCount(data.unread_count||0)}
     } finally {if(number===requestNumber.current)setLoading(false)}
   }
-  useLiveRefresh(fetchNotifications,user?[{table:'notifications',filter:`user_id=eq.${user.id}`}]:[],!!user,10000)
+  useLiveRefresh(fetchNotifications,userId?[{table:'notifications',filter:`user_id=eq.${userId}`}]:[],!!userId,10000)
   useEffect(()=>{
-    const refresh=()=>{if(user)void fetchNotifications().catch(()=>{})}
+    const refresh=()=>{if(userId)void fetchNotifications().catch(()=>{})}
     window.addEventListener('beattoday:notifications-refresh',refresh)
     return()=>window.removeEventListener('beattoday:notifications-refresh',refresh)
-  },[user])
-  useEffect(()=>{if(open&&user)void fetchNotifications().catch(()=>{})},[open,user])
+  },[userId,kind])
+  useEffect(()=>{if(open&&userId)void fetchNotifications().catch(()=>{})},[open,userId,kind])
 
   // Close panel on outside click
   useEffect(() => {
@@ -78,24 +71,26 @@ export default function NotificationBell() {
   }, [open])
 
   const markAllRead = async () => {
-    const response=await fetch('/api/notifications',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({mark_all:true})}).catch(()=>null)
+    const response=await fetch('/api/notifications',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({mark_all:true,kind})}).catch(()=>null)
     if(response?.ok){++requestNumber.current;setNotifications(prev=>prev.map(n=>({...n,is_read:true})));setUnreadCount(0);void fetchNotifications().catch(()=>{})}
   }
   const markRead = async (id:string) => {
-    const response=await fetch('/api/notifications',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[id]})}).catch(()=>null)
+    const response=await fetch('/api/notifications',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[id],kind})}).catch(()=>null)
     if(response?.ok){++requestNumber.current;setNotifications(prev=>prev.map(n=>n.id===id?{...n,is_read:true}:n));void fetchNotifications().catch(()=>{})}
   }
 
-  if (!user) return null
+  if (!userId) return null
 
   return (
     <div className="relative" ref={panelRef}>
       <button
-        aria-label="Notifications"
+        aria-label={unreadCount?`${title}, ${unreadCount} unread`:title}
+        aria-expanded={open}
+        title={title}
         onClick={() => setOpen(o => !o)}
-        className="relative p-2.5 rounded-full hover:bg-white/5 text-text-muted hover:text-white transition-all group"
+        className="relative p-2 sm:p-2.5 rounded-full hover:bg-white/5 text-text-muted hover:text-white transition-all group"
       >
-        <Bell className="w-6 h-6 group-hover:scale-110 transition-transform" />
+        <Icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 w-5 h-5 bg-accent-orange text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-black shadow-[0_0_15px_rgba(255,85,0,0.5)]">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -104,10 +99,10 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-bg-surface border border-border-subtle rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] bg-bg-surface border border-border-subtle rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
-            <h3 className="text-sm font-black uppercase tracking-widest text-white">Notifications</h3>
+            <h3 className="text-sm font-black uppercase tracking-widest text-white">{title}</h3>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <button onClick={markAllRead} className="text-[10px] font-bold uppercase tracking-widest text-accent-orange hover:text-white transition-colors flex items-center gap-1">
@@ -126,8 +121,8 @@ export default function NotificationBell() {
               <div className="p-6 text-center text-text-muted text-sm animate-pulse">Loading...</div>
             ) : notifications.length === 0 ? (
               <div className="p-8 text-center space-y-2">
-                <Bell className="w-8 h-8 text-text-muted opacity-30 mx-auto" />
-                <p className="text-text-muted text-sm font-bold">No notifications yet</p>
+                <Icon className="w-8 h-8 text-text-muted opacity-30 mx-auto" />
+                <p className="text-text-muted text-sm font-bold">{isMessages?'No message alerts yet':'No notifications yet'}</p>
               </div>
             ) : (
               notifications.map(n => {
@@ -155,6 +150,7 @@ export default function NotificationBell() {
               })
             )}
           </div>
+          {isMessages&&<Link href="/messages" onClick={()=>setOpen(false)} className="block px-4 py-3 text-sm font-bold text-accent-orange border-t border-border-subtle hover:bg-white/5">Open all messages →</Link>}
         </div>
       )}
     </div>
