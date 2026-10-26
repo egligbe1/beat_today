@@ -12,7 +12,7 @@ const CLEARANCE_DELAY_MS = 7 * 24 * 60 * 60 * 1000
 
 export async function POST(req: Request) {
   const isValid = await verifyQStashSignature(req.clone())
-  if (!isValid && process.env.NODE_ENV === 'production') {
+  if (!isValid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

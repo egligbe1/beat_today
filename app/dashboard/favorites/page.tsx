@@ -5,7 +5,7 @@ import { Heart, Music } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function FavoritesPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -19,7 +19,7 @@ export default async function FavoritesPage() {
       beat_id,
       beats (
         *,
-        producer:producer_settings(display_name, avatar_url)
+        users_profiles!beats_producer_id_fkey(handle, display_name, avatar_url)
       )
     `)
     .eq('user_id', user.id)

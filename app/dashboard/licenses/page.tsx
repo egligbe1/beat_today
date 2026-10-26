@@ -1,3 +1,4 @@
+import { effectiveTier } from '@/lib/security'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Lock } from 'lucide-react'
@@ -5,7 +6,7 @@ import Link from 'next/link'
 import LicensesDashboard from './LicensesDashboard'
 
 export default async function LicensesPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -14,11 +15,11 @@ export default async function LicensesPage() {
 
   const { data: settings } = await supabase
     .from('producer_settings')
-    .select('subscription_tier')
+    .select('subscription_tier, subscription_active, subscription_expires_at')
     .eq('user_id', user.id)
     .single()
 
-  const tier = (settings?.subscription_tier || 'free').toLowerCase()
+  const tier = effectiveTier(settings).toLowerCase()
   const canCustomizeLicenses = tier === 'starter' || tier === 'pro'
 
   if (!canCustomizeLicenses) {

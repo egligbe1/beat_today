@@ -108,6 +108,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // Lazily create the client so importing the store doesn't spin one up
     // during SSR/bundle evaluation.
     const supabase = createClient()
-    return await supabase.rpc('increment_beat_play_count', { beat_id: beatId })
+    const response = await fetch(`/api/beats/${beatId}/play`, { method: 'POST' })
+    return { error: response.ok ? null : new Error('Play tracking failed') }
   },
 }))

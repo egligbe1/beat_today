@@ -6,7 +6,7 @@ import { formatCurrency } from '@/lib/utils'
 import { BookOpen, Download, Clock, FileText } from 'lucide-react'
 
 export default async function LibraryPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?redirect=/library')
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { presignDownload } from '@/lib/r2'
+import { ownsAsset } from '@/lib/security'
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,9 +24,10 @@ export async function GET(req: Request) {
     if (!beatId || !fileType || !orderId) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
     }
+    if (!['mp3','wav','stems'].includes(fileType)) return NextResponse.json({ error: 'Invalid file type' }, { status: 400 })
 
     // 1. Verify user is authenticated
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -34,7 +36,7 @@ export async function GET(req: Request) {
     // 2. Verify user owns this order and the beat is in it
     const { data: orderItem } = await supabaseAdmin
       .from('order_items')
-      .select('license_type, beats(file_mp3_url, file_wav_url, file_stems_url, title)')
+      .select('license_type, producer_id, asset_snapshot, beats(file_mp3_url, file_wav_url, file_stems_url, title)')
       .eq('beat_id', beatId)
       .eq('order_id', orderId)
       .single()
@@ -72,19 +74,22 @@ export async function GET(req: Request) {
       if (!STEMS_LICENSES.has(licenseType)) {
         return NextResponse.json({ error: 'Your license does not include stems' }, { status: 403 })
       }
-      filePath = beat.file_stems_url ?? null
+      filePath = orderItem.asset_snapshot ? orderItem.asset_snapshot.stems : beat?.file_stems_url ?? null
     } else {
-      filePath = beat.file_wav_url ?? beat.file_mp3_url ?? null
+      filePath = orderItem.asset_snapshot ? (orderItem.asset_snapshot.wav ?? orderItem.asset_snapshot.mp3) : beat?.file_wav_url ?? beat?.file_mp3_url ?? null
     }
 
     if (!filePath) {
       return NextResponse.json({ error: 'File not available' }, { status: 404 })
     }
+    if (!ownsAsset(filePath, orderItem.producer_id, fileType === 'stems' ? 'stems' : 'master')) {
+      return NextResponse.json({ error: 'Asset ownership requires review' }, { status: 403 })
+    }
 
     // 4. Presign the private R2 object (1-hour expiry). Stored value is the R2
     //    object key. Filename uses the real extension so a WAV isn't mislabeled.
     const ext = fileType === 'stems' ? 'zip' : (filePath.split('.').pop() || 'mp3').toLowerCase()
-    const filename = `${beat.title || 'beat'}.${ext}`
+    const filename = `${beat?.title || 'beat'}.${ext}`
 
     try {
       const url = await presignDownload(filePath, { filename, expiresIn: 3600 })

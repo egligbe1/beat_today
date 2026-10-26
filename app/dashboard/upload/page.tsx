@@ -1,4 +1,5 @@
 'use client'
+import { effectiveTier } from '@/lib/security'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -64,11 +65,11 @@ export default function UploadPage() {
       if (!user) return
 
       const [settingsResult, countResult] = await Promise.all([
-        supabase.from('producer_settings').select('subscription_tier').eq('user_id', user.id).single(),
+        supabase.from('producer_settings').select('subscription_tier, subscription_active, subscription_expires_at').eq('user_id', user.id).single(),
         supabase.from('beats').select('id', { count: 'exact', head: true }).eq('producer_id', user.id).eq('status', 'active'),
       ])
 
-      setTier(settingsResult.data?.subscription_tier || 'free')
+      setTier(effectiveTier(settingsResult.data))
       setBeatCount(countResult.count || 0)
 
       // Resume a draft: either the one named in ?id, or — to avoid spawning a
@@ -82,6 +83,7 @@ export default function UploadPage() {
           .select('*')
           .eq('id', draftId)
           .eq('producer_id', user.id)
+          .eq('status', 'draft')
           .maybeSingle()
         draft = data
       } else {
@@ -114,20 +116,6 @@ export default function UploadPage() {
         setBeatId(crypto.randomUUID())
       }
 
-      // Clean up previously-accumulated abandoned drafts: metadata-only rows
-      // (no uploaded files) other than the one we're resuming. Safe — nothing
-      // with an actual upload is touched.
-      let cleanup = supabase
-        .from('beats')
-        .delete()
-        .eq('producer_id', user.id)
-        .eq('status', 'draft')
-        .is('file_mp3_url', null)
-        .is('file_wav_url', null)
-        .is('cover_url', null)
-      if (draft?.id) cleanup = cleanup.neq('id', draft.id)
-      cleanup.then(() => {})
-
       setChecking(false)
     }
 
@@ -146,7 +134,7 @@ export default function UploadPage() {
 
     setIsSaving(true)
     try {
-      await supabase.from('beats').upsert({
+      const { error: draftError } = await supabase.from('beats').upsert({
         id: beatId,
         producer_id: user.id,
         title: formData.title,
@@ -161,6 +149,7 @@ export default function UploadPage() {
         is_free: formData.is_free,
         status: 'draft',
       })
+      if (draftError) throw draftError
     } catch (err) {
       console.error('Auto-save failed:', err)
     } finally {
@@ -197,16 +186,22 @@ export default function UploadPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     setLoading(true)
     setError(null)
 
     try {
       if (!user || !beatId) throw new Error('Not authenticated')
+      const splitTotal = collaborators.reduce((total, c) => total + Number(c.percentage), 0)
+      if (!Number.isFinite(splitTotal) || splitTotal > 100 || collaborators.some(c => Number(c.percentage) <= 0)) throw new Error('Collaborator shares must be positive and total no more than 100%')
 
       if (atLimit) throw new Error(`Limit reached on ${tier.toUpperCase()} plan.`)
 
       if (!files.cover) throw new Error('Please upload cover art')
       if (!files.mp3Clean) throw new Error('Please upload your beat (MP3 or WAV)')
+      // Ensure a new draft exists before requesting ownership-bound upload URLs.
+      const { error: draftError } = await supabase.from('beats').upsert({ id: beatId, producer_id: user.id, title: form.title, status: 'draft' })
+      if (draftError) throw draftError
 
       // Accept the clean master as MP3 or WAV. It is the single file the producer
       // uploads: buyers who purchase download it; browsers hear an auto-tagged
@@ -264,7 +259,8 @@ export default function UploadPage() {
            
            if (splitsToInsert.length > 0) {
              await supabase.from('beat_collaborators').delete().eq('beat_id', beatId) // clear existing drafts
-             await supabase.from('beat_collaborators').insert(splitsToInsert as any)
+             const { error: splitError } = await supabase.from('beat_collaborators').insert(splitsToInsert as any)
+             if (splitError) throw splitError
            }
          }
       }
@@ -272,11 +268,12 @@ export default function UploadPage() {
       // Auto-generate the tagged preview from the clean master the producer
       // just uploaded — no separate "preview" file required.
       if (masterKey) {
-        await fetch('/api/audio/queue-watermark', {
+        const queued = await fetch('/api/audio/queue-watermark', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ beat_id: beatId, storage_path: masterKey }),
         })
+        if (!queued.ok) throw new Error('Files are saved. Preview processing will retry in the background.')
       }
 
       router.push('/dashboard/beats')

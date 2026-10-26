@@ -8,7 +8,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = { title: 'Messages — BeatToday' }
 
 export default async function MessagesPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?redirect=/messages')
 

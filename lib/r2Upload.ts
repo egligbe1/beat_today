@@ -21,6 +21,7 @@ export async function uploadToR2(params: {
       beatId: params.beatId,
       ext: params.ext,
       contentType,
+      size: params.file.size,
     }),
   })
   if (!presignRes.ok) {

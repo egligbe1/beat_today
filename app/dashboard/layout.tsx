@@ -26,6 +26,7 @@ const PRODUCER_NAV = [
       { href: '/dashboard/licenses', label: 'Licenses', icon: FileText },
       { href: '/dashboard/subscription', label: 'Subscription', icon: Crown },
       { href: '/messages', label: 'Messages', icon: MessageCircle },
+      { href: '/dashboard/offers', label: 'Offers', icon: Tag },
       { href: '/dashboard/settings', label: 'Settings', icon: Settings },
     ]
   },
@@ -44,6 +45,7 @@ const ARTIST_NAV = [
     label: 'Engagement',
     links: [
       { href: '/messages', label: 'Messages', icon: MessageCircle },
+      { href: '/dashboard/offers', label: 'Offers', icon: Tag },
     ]
   },
   {

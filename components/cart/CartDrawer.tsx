@@ -35,7 +35,7 @@ export default function CartDrawer() {
     setPromoLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/promo?code=${encodeURIComponent(promoCode.trim())}&amount=${getTotal()}`)
+      const res = await fetch(`/api/promo?code=${encodeURIComponent(promoCode.trim())}&items=${encodeURIComponent(JSON.stringify(items.map(i => ({beat_id:i.beat_id,license_type:i.license_type}))))}`)
       const data = await res.json()
       if (!res.ok) { setError(data.error); return }
       setAppliedPromo({

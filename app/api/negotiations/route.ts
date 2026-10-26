@@ -1,3 +1,4 @@
+import { rateLimit } from '@/lib/rateLimit'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
@@ -10,13 +11,14 @@ const supabaseAdmin = createAdminClient(
 // POST /api/negotiations -> Create a new offer
 export async function POST(request: Request) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!await rateLimit('offers:' + user.id, 10, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
     const { beat_id, license_type, amount, message } = await request.json()
 
     const numericAmount = Number(amount)
@@ -28,18 +30,18 @@ export async function POST(request: Request) {
     // (prevents spoofing offers/notifications to arbitrary users).
     const { data: beat } = await supabaseAdmin
       .from('beats')
-      .select('id, producer_id, title')
+      .select('id, producer_id, title, status, is_exclusive_sold')
       .eq('id', beat_id)
       .single()
 
-    if (!beat) {
+    if (!beat || beat.status !== 'active' || beat.is_exclusive_sold || !['mp3','wav','trackout','exclusive'].includes(license_type)) {
       return NextResponse.json({ error: 'Beat not found' }, { status: 404 })
     }
     if (beat.producer_id === user.id) {
       return NextResponse.json({ error: 'You cannot make an offer on your own beat' }, { status: 400 })
     }
 
-    const { data: offer, error } = await supabase
+    const { data: offer, error } = await supabaseAdmin
       .from('offers')
       .insert({
         buyer_id: user.id,
@@ -74,7 +76,7 @@ export async function POST(request: Request) {
 // GET /api/negotiations -> Get user's offers (sent or received)
 export async function GET(request: Request) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -86,6 +88,7 @@ export async function GET(request: Request) {
       .from('offers')
       .select('*, beats(title, cover_url)')
       .order('created_at', { ascending: false })
+      .limit(100)
 
     if (error) throw error
 

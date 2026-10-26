@@ -1,3 +1,4 @@
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Image from 'next/image'
@@ -5,8 +6,9 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import MessageThread from './MessageThread'
 
-export default async function ConversationPage({ params }: { params: { id: string } }) {
-  const supabase = createClient()
+export default async function ConversationPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?redirect=/messages')
 
@@ -29,10 +31,10 @@ export default async function ConversationPage({ params }: { params: { id: strin
     .from('messages')
     .select('*')
     .eq('conversation_id', params.id)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false }).limit(100)
 
   // Mark messages as read
-  await supabase
+  await createAdminClient()
     .from('messages')
     .update({ is_read: true })
     .eq('conversation_id', params.id)
@@ -57,7 +59,7 @@ export default async function ConversationPage({ params }: { params: { id: strin
         </div>
         <div>
           <p className="font-bold text-white">{other?.display_name}</p>
-          <Link href={`/@${other?.handle}`} className="text-xs text-accent-orange hover:underline">@{other?.handle}</Link>
+          <Link href={`/${other?.handle}`} className="text-xs text-accent-orange hover:underline">@{other?.handle}</Link>
         </div>
       </div>
 
@@ -65,7 +67,7 @@ export default async function ConversationPage({ params }: { params: { id: strin
       <MessageThread
         conversationId={params.id}
         currentUserId={user.id}
-        initialMessages={messages || []}
+        initialMessages={[...(messages || [])].reverse()}
         otherUser={other}
       />
     </div>

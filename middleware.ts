@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
@@ -8,7 +8,18 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  const redirectTo = (path: string) => {
+    const redirected = NextResponse.redirect(new URL(path, request.url))
+    response.cookies.getAll().forEach(cookie => redirected.cookies.set(cookie))
+    return redirected
+  }
   const pathname = request.nextUrl.pathname
+  if (pathname.startsWith('/api/') && !['GET','HEAD','OPTIONS'].includes(request.method)
+    && !pathname.startsWith('/api/webhooks/') && !pathname.startsWith('/api/cron/')) {
+    const origin = request.headers.get('origin')
+    const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL ? new URL(process.env.NEXT_PUBLIC_SITE_URL).origin : request.nextUrl.origin
+    if (origin && origin !== siteOrigin) return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 })
+  }
 
   // Only the dashboard (protection) and the auth pages (redirect-if-logged-in)
   // need the user. `supabase.auth.getUser()` is a network round-trip to Supabase
@@ -16,6 +27,9 @@ export async function middleware(request: NextRequest) {
   // per-request latency, so we skip it entirely unless the route requires it.
   const needsAuth =
     pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/library') ||
+    pathname.startsWith('/messages') ||
+    pathname === '/complete-profile' ||
     pathname === '/login' ||
     pathname === '/signup'
 
@@ -25,14 +39,13 @@ export async function middleware(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) {
-            return request.cookies.get(name)?.value
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            response.cookies.set({ name, value, ...options })
-          },
-          remove(name: string, options: CookieOptions) {
-            response.cookies.set({ name, value: '', ...options })
+          getAll() { return request.cookies.getAll() },
+          setAll(cookiesToSet) {
+            const prior = response.cookies.getAll()
+            cookiesToSet.forEach(({name,value})=>request.cookies.set(name,value))
+            response = NextResponse.next({request:{headers:request.headers}})
+            prior.forEach(cookie=>response.cookies.set(cookie))
+            cookiesToSet.forEach(({name,value,options})=>response.cookies.set(name,value,options))
           },
         },
       }
@@ -43,7 +56,7 @@ export async function middleware(request: NextRequest) {
     // Protect dashboard routes
     if (pathname.startsWith('/dashboard')) {
       if (!user) {
-        return NextResponse.redirect(new URL('/login', request.url))
+        return redirectTo('/login')
       }
 
       // Only fetch the profile for dashboard routes to save DB calls elsewhere
@@ -55,18 +68,18 @@ export async function middleware(request: NextRequest) {
 
       const allowedRoles = ['producer', 'artist']
       if (!profile?.role || (!allowedRoles.includes(profile.role) && pathname !== '/dashboard/unauthorized')) {
-        return NextResponse.redirect(new URL('/', request.url))
+        return redirectTo('/')
       }
     }
 
     // Redirect authenticated users away from login/signup
     if (user && (pathname === '/login' || pathname === '/signup')) {
-      return NextResponse.redirect(new URL('/', request.url))
+      return redirectTo('/')
     }
   }
 
   // --- Geo-IP Currency Localization ---
-  const countryCode = request.headers.get('x-vercel-ip-country') || request.geo?.country
+  const countryCode = request.headers.get('x-vercel-ip-country')
   const urlCurrency = request.nextUrl.searchParams.get('currency')?.toUpperCase()
   
   let detectedCurrency: string | null = null
@@ -85,7 +98,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Override if explicitly requested in URL or existing valid cookie
-  const targetCurrency = urlCurrency || request.cookies.get('user-currency')?.value || detectedCurrency
+  const requestedCurrency = urlCurrency || request.cookies.get('user-currency')?.value || detectedCurrency
+  const targetCurrency = requestedCurrency && ['USD','GHS','NGN','KES','ZAR','GBP','EUR'].includes(requestedCurrency) ? requestedCurrency : 'USD'
   
   // Set the cookie ONLY if we have a valid detection or an explicit override
   // This allows CurrencyProvider.tsx (client-side) to perform its own ipapi.co lookup if middleware is unsure (like on localhost)
@@ -106,11 +120,10 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api/ (handled by route-level auth)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico, icon.webp, og-image.jpg (public assets)
      */
-    '/((?!api/|_next/static|_next/image|favicon.ico|icon.webp|og-image.jpg).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icon.webp|og-image.jpg).*)',
   ],
 }

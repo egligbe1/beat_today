@@ -1,3 +1,5 @@
+import { formatWalletMoney } from '@/lib/money'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCachedAuthContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -12,7 +14,7 @@ export default async function DashboardOverview() {
   if (authError || !user) redirect('/login')
   if (!profile) redirect('/complete-profile')
 
-  const supabase = createClient()
+  const supabase = await createClient()
   const isProducer = profile.role === 'producer'
 
   // Fetch role-specific data
@@ -22,10 +24,11 @@ export default async function DashboardOverview() {
     const [settingsResult, beatsCountResult, followersCountResult, recentSalesResult, walletResult, notificationsResult] = await Promise.all([
       supabase.from('producer_settings').select('*').eq('user_id', user.id).single(),
       supabase.from('beats').select('id', { count: 'exact', head: true }).eq('producer_id', user.id).eq('status', 'active'),
-      supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', user.id),
-      supabase.from('order_items')
-        .select('id, price, license_type, created_at, beats(title, cover_url), orders!inner(buyer_profiles:users_profiles!buyer_id(display_name))')
+      supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', user.id),
+      createAdminClient().from('order_items')
+        .select('id, price, license_type, created_at, beats(title, cover_url), orders!inner(status, buyer_profiles:users_profiles!buyer_id(display_name))')
         .eq('producer_id', user.id)
+        .eq('orders.status', 'completed')
         .order('created_at', { ascending: false })
         .limit(5),
       supabase.from('wallets').select('available_balance, pending_balance').eq('producer_id', user.id).single(),
@@ -50,7 +53,7 @@ export default async function DashboardOverview() {
         .order('created_at', { ascending: false })
         .limit(5),
       supabase.from('favorites').select('beat_id', { count: 'exact', head: true }).eq('user_id', user.id),
-      supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', user.id),
+      supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('follower_id', user.id),
       supabase.from('notifications').select('id').eq('user_id', user.id).eq('is_read', false),
     ])
 
@@ -111,7 +114,7 @@ export default async function DashboardOverview() {
               <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-accent-gold" />
             </div>
             <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-text-muted mb-1">Revenue</p>
-            <p className="text-xl sm:text-2xl font-black">{formatCurrency(dashboardData.totalRevenue)}</p>
+            <p className="text-xl sm:text-2xl font-black">{formatWalletMoney(dashboardData.totalRevenue)}</p>
           </div>
           <div className="bg-bg-surface p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-border-subtle hover:border-accent-orange transition-colors">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-accent-orange/10 rounded-xl flex items-center justify-center mb-2 sm:mb-3">

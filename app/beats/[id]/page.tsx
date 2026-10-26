@@ -20,29 +20,31 @@ export const revalidate = 300
 const getBeatData = (id: string) => unstable_cache(
   async () => {
     const supabase = createPublicClient()
-    const { data: beat } = await supabase
+    const { data: rawBeat } = await supabase
       .from('beats')
-      .select('*, users_profiles!beats_producer_id_fkey(*)')
+      .select('id,producer_id,title,genre,mood_tags,bpm,key,cover_url,mp3_preview_url,watermarked_preview_url,price_mp3,price_wav,price_trackout,price_exclusive,play_count,is_exclusive_sold,status,is_free,product_type,watermark_status,likes_count,comments_count,created_at,updated_at, users_profiles!beats_producer_id_fkey(id,handle,display_name,avatar_url,bio)')
       .eq('id', id)
       .eq('status', 'active')
       .single()
 
-    if (!beat) return { beat: null, relatedBeats: [] }
+    if (!rawBeat) return { beat: null, relatedBeats: [] }
+    const beat = { ...rawBeat, users_profiles: Array.isArray(rawBeat.users_profiles) ? rawBeat.users_profiles[0] : rawBeat.users_profiles }
 
     const { data: relatedBeats } = await supabase
       .from('beats')
-      .select('*, users_profiles!beats_producer_id_fkey(handle, display_name)')
+      .select('id,producer_id,title,genre,mood_tags,bpm,key,cover_url,mp3_preview_url,watermarked_preview_url,price_mp3,price_wav,price_trackout,price_exclusive,play_count,is_exclusive_sold,status,is_free,product_type,watermark_status,likes_count,comments_count,created_at,updated_at, users_profiles!beats_producer_id_fkey(handle, display_name)')
       .eq('producer_id', beat.producer_id)
       .neq('id', beat.id)
       .limit(4)
 
-    return { beat, relatedBeats: relatedBeats || [] }
+    return { beat, relatedBeats: (relatedBeats || []).map((b: any) => ({ ...b, users_profiles: Array.isArray(b.users_profiles) ? b.users_profiles[0] : b.users_profiles })) }
   },
   ['beat-detail', id],
   { revalidate: 300, tags: [`beat-${id}`] }
 )()
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const { beat } = await getBeatData(params.id)
 
   if (!beat) return { title: 'Beat Not Found — BeatToday' }
@@ -59,7 +61,8 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 }
 
-export default async function BeatDetailPage({ params }: { params: { id: string } }) {
+export default async function BeatDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { beat, relatedBeats } = await getBeatData(params.id)
 
   if (!beat) return notFound()

@@ -43,8 +43,8 @@ export function publicUrl(key: string): string {
 }
 
 /** Presigned PUT URL for a browser to upload a file directly to R2. */
-export function presignUpload(bucket: string, key: string, contentType: string, expiresIn = 600): Promise<string> {
-  return getSignedUrl(r2(), new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), { expiresIn })
+export function presignUpload(bucket: string, key: string, contentType: string, expiresIn = 600, size?: number): Promise<string> {
+  return getSignedUrl(r2(), new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, ContentLength: size }), { expiresIn })
 }
 
 /** Presigned GET URL for a private object (optionally forcing a download filename). */
@@ -70,9 +70,16 @@ export async function putObject(bucket: string, key: string, body: Buffer | Uint
 /** Server-side download of an object into a Buffer (e.g. the master to watermark). */
 export async function getObjectBuffer(bucket: string, key: string): Promise<Buffer> {
   const res = await r2().send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+  const maxBytes = 300 * 1024 * 1024
+  if ((res.ContentLength || 0) > maxBytes) throw new Error('Audio source exceeds processing limit')
   const chunks: Buffer[] = []
+  let size = 0
   // @ts-expect-error Node stream is async-iterable at runtime
-  for await (const c of res.Body) chunks.push(Buffer.from(c))
+  for await (const c of res.Body) {
+    size += c.length
+    if (size > maxBytes) throw new Error('Audio source exceeds processing limit')
+    chunks.push(Buffer.from(c))
+  }
   return Buffer.concat(chunks)
 }
 

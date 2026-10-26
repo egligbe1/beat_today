@@ -1,6 +1,6 @@
 'use client'
 
-import { useCurrency } from '@/lib/providers/CurrencyProvider'
+import { formatWalletMoney } from '@/lib/money'
 import { CheckCircle, Clock, HelpCircle } from 'lucide-react'
 import { useState } from 'react'
 
@@ -27,7 +27,6 @@ function Tooltip({ text }: { text: string }) {
 }
 
 export default function WalletDisplay({ available, pending, ledger }: Props) {
-  const { convertAndFormat } = useCurrency()
   const total = available + pending
 
   return (
@@ -40,7 +39,7 @@ export default function WalletDisplay({ available, pending, ledger }: Props) {
               Available Balance
               <Tooltip text="Funds cleared and ready to be paid out to your bank account. Payouts run automatically on the 1st and 15th of each month." />
             </p>
-            <h2 className="text-3xl sm:text-5xl font-black text-white">{convertAndFormat(available)}</h2>
+            <h2 className="text-3xl sm:text-5xl font-black text-white">{formatWalletMoney(available)}</h2>
             <p className="text-xs text-accent-green font-bold uppercase tracking-widest flex items-center gap-2">
               <CheckCircle className="w-4 h-4" /> Ready for Payout
             </p>
@@ -51,11 +50,11 @@ export default function WalletDisplay({ available, pending, ledger }: Props) {
           <div className="relative z-10 space-y-3 sm:space-y-4">
             <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-text-muted flex items-center">
               Pending Clearance
-              <Tooltip text="Sales revenue held for 48 hours as a fraud protection window. Funds automatically move to Available Balance after 48 hours." />
+              <Tooltip text="Sales revenue held for 7 days as a fraud protection window. Funds automatically move to Available Balance after 7 days." />
             </p>
-            <h2 className="text-3xl sm:text-5xl font-black text-accent-gold/90">{convertAndFormat(pending)}</h2>
+            <h2 className="text-3xl sm:text-5xl font-black text-accent-gold/90">{formatWalletMoney(pending)}</h2>
             <p className="text-xs text-text-muted font-bold uppercase tracking-widest flex items-center gap-2">
-              <Clock className="w-4 h-4" /> 48-Hour Maturation
+              <Clock className="w-4 h-4" /> 7-Day Maturation
             </p>
           </div>
         </div>
@@ -66,7 +65,7 @@ export default function WalletDisplay({ available, pending, ledger }: Props) {
               Total Revenue
               <Tooltip text="Your combined available + pending balance. Represents all earnings on BeatToday that haven't yet been paid out." />
             </p>
-            <h2 className="text-3xl sm:text-5xl font-black text-white">{convertAndFormat(total)}</h2>
+            <h2 className="text-3xl sm:text-5xl font-black text-white">{formatWalletMoney(total)}</h2>
             <p className="text-xs text-[#FF5500] font-bold uppercase tracking-widest">Lifetime Earnings</p>
           </div>
         </div>
@@ -116,7 +115,7 @@ export default function WalletDisplay({ available, pending, ledger }: Props) {
                       {new Date(tx.created_at).toLocaleDateString()}
                     </td>
                     <td className={`p-3 sm:p-6 text-right font-black text-sm sm:text-lg whitespace-nowrap ${tx.amount > 0 ? 'text-green-500' : 'text-white'}`}>
-                      {tx.amount > 0 ? '+' : ''}{convertAndFormat(Math.abs(tx.amount))}
+                      {tx.amount > 0 ? '+' : ''}{formatWalletMoney(Math.abs(tx.amount))}
                     </td>
                   </tr>
                 ))

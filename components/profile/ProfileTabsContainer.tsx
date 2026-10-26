@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import BeatCard from '@/components/beats/BeatCard'
+import ContactButton from '@/components/profile/ContactButton'
 import { Music, CassetteTape, Disc, Mail, TrendingUp, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -51,9 +52,7 @@ export default function ProfileTabsContainer({ beats, producer, totalPlays, tota
                  <h3 className="text-white font-bold mb-2">{svc.title}</h3>
                  <p className="text-text-muted text-xs mb-4 line-clamp-2">{svc.description}</p>
                  <div className="mt-auto w-full">
-                    <button className="w-full h-10 rounded-xl bg-accent-orange text-white font-bold text-xs uppercase tracking-widest hover:bg-accent-orange/90 transition-colors">
-                      Book — ${svc.price}
-                    </button>
+                    <ContactButton producerId={producer.id} className="w-full justify-center" />
                     <p className="text-[10px] text-text-muted mt-2 text-center uppercase tracking-widest">{svc.delivery_time_days} Days Delivery</p>
                  </div>
               </div>
@@ -89,17 +88,7 @@ export default function ProfileTabsContainer({ beats, producer, totalPlays, tota
         return (
           <div className="max-w-2xl mx-auto bg-bg-surface p-8 rounded-3xl border border-border-subtle">
              <h3 className="text-xl font-black uppercase tracking-tight mb-6">Send a Message</h3>
-             <div className="space-y-4">
-                <div>
-                   <label className="block text-[10px] font-black uppercase tracking-widest text-text-muted mb-2">Subject</label>
-                   <input type="text" className="w-full h-12 bg-bg-primary border border-border-subtle rounded-xl px-4 text-sm focus:border-accent-orange transition-colors" placeholder="Inquiry about custom beats..." />
-                </div>
-                <div>
-                   <label className="block text-[10px] font-black uppercase tracking-widest text-text-muted mb-2">Message</label>
-                   <textarea rows={5} className="w-full bg-bg-primary border border-border-subtle rounded-xl p-4 text-sm focus:border-accent-orange transition-colors" placeholder="Hey, I'd love to work with you..." />
-                </div>
-                <button className="w-full h-12 bg-accent-orange text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-opacity-90 transition-all">Send Message</button>
-             </div>
+             <ContactButton producerId={producer.id} />
           </div>
         )
 

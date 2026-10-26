@@ -34,7 +34,7 @@ const getHomeData = (genre?: string) => unstable_cache(
     const supabase = createPublicClient()
     const beatsQuery = supabase
       .from('beats')
-      .select('*, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
+      .select('id,producer_id,title,genre,mood_tags,bpm,key,cover_url,mp3_preview_url,watermarked_preview_url,price_mp3,price_wav,price_trackout,price_exclusive,play_count,is_exclusive_sold,status,is_free,product_type,watermark_status,likes_count,comments_count,created_at,updated_at, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(8)
@@ -42,8 +42,8 @@ const getHomeData = (genre?: string) => unstable_cache(
 
     const [{ data: beats }, { data: proProducers }, { data: starterProducers }] = await Promise.all([
       beatsQuery,
-      supabase.from('users_profiles').select('*, producer_settings!inner(subscription_tier)').eq('role', 'producer').eq('producer_settings.subscription_tier', 'PRO').limit(6),
-      supabase.from('users_profiles').select('*, producer_settings!inner(subscription_tier)').eq('role', 'producer').eq('producer_settings.subscription_tier', 'STARTER').limit(6),
+      supabase.from('users_profiles').select('*, producer_public_tiers!inner(subscription_tier,expires_at)').eq('role', 'producer').gt('producer_public_tiers.expires_at', new Date().toISOString()).eq('producer_public_tiers.subscription_tier', 'PRO').limit(6),
+      supabase.from('users_profiles').select('*, producer_public_tiers!inner(subscription_tier,expires_at)').eq('role', 'producer').gt('producer_public_tiers.expires_at', new Date().toISOString()).eq('producer_public_tiers.subscription_tier', 'STARTER').limit(6),
     ])
     return { beats: beats || [], proProducers: proProducers || [], starterProducers: starterProducers || [] }
   },
@@ -51,7 +51,8 @@ const getHomeData = (genre?: string) => unstable_cache(
   { revalidate: 120, tags: ['home'] }
 )()
 
-export default async function Home({ searchParams }: { searchParams: { genre?: string; q?: string } }) {
+export default async function Home(props: { searchParams: Promise<{ genre?: string; q?: string }> }) {
+  const searchParams = await props.searchParams;
   const { beats, proProducers, starterProducers } = await getHomeData(searchParams.genre)
   const producers = (proProducers && proProducers.length > 0) ? proProducers : (starterProducers || [])
 
@@ -140,7 +141,7 @@ export default async function Home({ searchParams }: { searchParams: { genre?: s
                   <div>
                     <p className="font-black text-white group-hover:text-[#FFB000] transition-colors text-xs sm:text-sm uppercase tracking-tight truncate max-w-[80px] sm:max-w-[120px]">{producer.display_name}</p>
                     <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#FF5500] mt-0.5">
-                      {(producer.producer_settings?.subscription_tier || '').toUpperCase() === 'PRO' ? '⭐ PRO' : 'Featured'}
+                      {(producer.producer_public_tiers?.subscription_tier || '').toUpperCase() === 'PRO' ? '⭐ PRO' : 'Featured'}
                     </p>
                   </div>
                 </Link>

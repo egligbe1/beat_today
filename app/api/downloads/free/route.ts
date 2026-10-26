@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { presignDownload } from '@/lib/r2'
+import { ownsAsset } from '@/lib/security'
+import { rateLimit, requestAddress } from '@/lib/rateLimit'
 
 // Service-role client — used to look up the beat and record the audience row
 // regardless of RLS. Never expose this key client-side.
@@ -14,6 +16,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // POST /api/downloads/free — lead-gated download for FREE beats only.
 export async function POST(request: Request) {
   try {
+    if (!await rateLimit(`free:${requestAddress(request)}`, 10, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
     const { beat_id, email, name } = await request.json()
 
     if (!beat_id || !email) {
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
     if (!beat) {
       return NextResponse.json({ error: 'Beat not found' }, { status: 404 })
     }
-    if (!beat.is_free) {
+    if (!beat.is_free || beat.status !== 'active') {
       // Never hand out a master for a paid beat through the free gate.
       return NextResponse.json({ error: 'This beat is not available for free download' }, { status: 403 })
     }
@@ -51,6 +54,7 @@ export async function POST(request: Request) {
     // 3. Sign a short-lived URL for the free master (MP3 or WAV — whichever
     //    format the producer uploaded as their clean file).
     const cleanFile = beat.file_mp3_url ?? beat.file_wav_url
+    if (!ownsAsset(cleanFile, beat.producer_id, 'master')) return NextResponse.json({ error: 'File unavailable' }, { status: 403 })
     if (!cleanFile) {
       return NextResponse.json({ error: 'Download file is not available' }, { status: 404 })
     }

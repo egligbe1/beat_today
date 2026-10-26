@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 
 export default async function ExplorePage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   // Fetch User and Beats in parallel (Using the pre-calculated Discovery View)
   const [userRes, beatsRes] = await Promise.all([

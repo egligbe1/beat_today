@@ -6,7 +6,7 @@ import { Plus, FolderOpen, Music } from 'lucide-react'
 import CollectionActions from './CollectionActions'
 
 export default async function CollectionsPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 

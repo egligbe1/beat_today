@@ -1,177 +1,76 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { getExchangeRates } from '@/lib/utils/rates'
+import { randomUUID } from 'node:crypto'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyQStashSignature } from '@/lib/qstash'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const paystackSecret = process.env.PAYSTACK_SECRET_KEY!
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
-
-// Wallet balances are stored in GHS (checkout currency)
-// Minimum payout: ~GHS 50 (≈ $3-4 USD)
-const MIN_PAYOUT_GHS = 50
-
-// Maps producer's bank country to the local currency for the Paystack transfer
-const COUNTRY_CURRENCY: Record<string, string> = {
-  Ghana: 'GHS',
-  Nigeria: 'NGN',
-  Kenya: 'KES',
-  'South Africa': 'ZAR',
+async function paystack(path: string, payload?: any) {
+  const response = await fetch(`https://api.paystack.co/${path}`, {
+    method: payload ? 'POST' : 'GET',
+    headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+    ...(payload ? { body: JSON.stringify(payload) } : {}),
+    cache: 'no-store', signal: AbortSignal.timeout(20000),
+  })
+  return { response, result: await response.json() }
 }
-
-export async function POST(req: Request) {
-  const isValid = await verifyQStashSignature(req.clone())
-  if (!isValid && process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+export async function POST(request: Request) {
+  if (!await verifyQStashSignature(request.clone())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const admin = createAdminClient()
+  const results: any[] = []
   try {
-    // 1. Move all matured pending balances → available
-    await supabaseAdmin.rpc('process_mature_funds')
-
-    // 2. Find all wallets with enough available balance and at least one recipient code
-    const { data: wallets } = await supabaseAdmin
-      .from('wallets')
-      .select('*, users_profiles(id, email)')
-      .gte('available_balance', MIN_PAYOUT_GHS)
-      .not('bank_details', 'is', null)
-      .or('recipient_code.not.is.null,mobile_money_recipient_code.not.is.null')
-
-    if (!wallets || wallets.length === 0) {
-      return NextResponse.json({ message: 'No eligible payouts found.' })
-    }
-
-    // Fetch rates once — balances are in GHS, need to convert to producer's local currency
-    const rates = await getExchangeRates()
-    const ghsRate = rates['GHS'] || 14.5
-
-    const payoutResults = []
-
-    for (const wallet of wallets) {
+    const { error: clearanceError } = await admin.rpc('process_mature_funds')
+    if (clearanceError) throw clearanceError
+    // Reconcile durable attempts first. Timeouts are never treated as failures.
+    const { data: attempts, error: attemptError } = await admin.from('payouts').select('*').eq('status','PROCESSING').order('updated_at').limit(5)
+    if (attemptError) throw attemptError
+    for (const attempt of attempts || []) {
       try {
-        const bankDetails = wallet.bank_details || {}
-        const defaultMethod = bankDetails.default_payout || 'bank'
-
-        // Resolve the active payout details and recipient code based on default method
-        const activeDetails = defaultMethod === 'mobile_money'
-          ? (bankDetails.mobile_money || {})
-          : (bankDetails.bank || bankDetails) // backwards-compat
-
-        const recipientCode = defaultMethod === 'mobile_money'
-          ? wallet.mobile_money_recipient_code
-          : wallet.recipient_code
-
-        const country = activeDetails.country || bankDetails.country || 'Ghana'
-        const currency = COUNTRY_CURRENCY[country] || 'GHS'
-
-        if (!recipientCode) {
-          payoutResults.push({ producer_id: wallet.producer_id, status: 'skipped', reason: `No recipient code for ${defaultMethod} — producer must complete payout setup` })
-          continue
+        const { result } = await paystack(`transfer/verify/${encodeURIComponent(attempt.reference)}`)
+        if (result.status && result.data) {
+          const { error } = await admin.rpc('finish_payout',{p_reference:attempt.reference,p_status:result.data.status,p_code:result.data.transfer_code || null})
+          if (error) throw error
+        } else if (attempt.transfer_payload) {
+          // A stable reference makes retries safe even if an earlier response was lost.
+          const retry = await paystack('transfer', attempt.transfer_payload)
+          if (retry.result.status) {
+            const { error } = await admin.rpc('finish_payout',{p_reference:attempt.reference,p_status:retry.result.data.status,p_code:retry.result.data.transfer_code || null})
+            if (error) throw error
+          } else console.warn('Payout still requires reconciliation', attempt.reference)
         }
-
-        // Convert GHS balance → producer's local currency
-        // GHS producers: 1:1. Others: GHS ÷ GHS_rate × local_rate
-        const localRate = rates[currency] || ghsRate
-        const localAmount = currency === 'GHS'
-          ? Number(wallet.available_balance)
-          : Number((Number(wallet.available_balance) / ghsRate * localRate).toFixed(2))
-
-        // Paystack expects amount in smallest unit (pesewas/kobo/cents)
-        const paystackAmount = Math.round(localAmount * 100)
-
-        // 3. Deduct balance safely via RPC *before* initializing Paystack transfer
-        // deduct_available_balance returns void and RAISEs on insufficient/locked
-        // funds, so a null `data` is success — only the error signals failure.
-        const { error: deductError } = await supabaseAdmin.rpc('deduct_available_balance', {
-           p_producer_id: wallet.producer_id,
-           p_amount: wallet.available_balance
-        })
-
-        if (deductError) {
-           console.warn(`Insufficient or locked funds for producer ${wallet.producer_id}`)
-           payoutResults.push({ producer_id: wallet.producer_id, status: 'skipped', reason: 'Insufficient funds during atomic deduction' })
-           continue
-        }
-
-        const transferPayload = {
-          source: 'balance',
-          amount: paystackAmount,
-          currency,
-          recipient: recipientCode,
-          reason: 'BeatToday Earnings Payout',
-          reference: `BT-PAYOUT-${wallet.producer_id}-${Date.now()}`,
-        }
-
-        const res = await fetch('https://api.paystack.co/transfer', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${paystackSecret}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(transferPayload),
-        })
-
-        const data = await res.json()
-
-        if (data.status) {
-          const transferCode = data.data?.transfer_code || data.data?.reference
-
-          const { error: payoutInsertError } = await supabaseAdmin.from('payouts').insert({
-            producer_id: wallet.producer_id,
-            amount: wallet.available_balance,
-            currency: 'GHS',
-            status: 'PROCESSING',
-            reference: transferPayload.reference,
-            paystack_transfer_code: transferCode,
-          })
-          if (payoutInsertError) console.error('Payout record insert failed:', payoutInsertError)
-
-          const { error: ledgerInsertError } = await supabaseAdmin.from('ledger_transactions').insert({
-            producer_id: wallet.producer_id,
-            amount: -wallet.available_balance,
-            type: 'PAYOUT',
-            status: 'AVAILABLE',
-            description: `Payout to ${bankDetails.bank_name || 'bank'} ${bankDetails.account_number}`,
-            reference_id: transferCode,
-          })
-          if (ledgerInsertError) console.error('Payout ledger insert failed:', ledgerInsertError)
-
-          // Notify producer (Notification uses user_id)
-          await supabaseAdmin.from('notifications').insert({
-            user_id: wallet.producer_id,
-            type: 'payout_processed',
-            title: 'Payout Initiated',
-            body: `GH₵${Number(wallet.available_balance).toFixed(2)} is on its way to your bank account.`,
-            link: '/dashboard/wallet',
-          })
-
-          payoutResults.push({ producer_id: wallet.producer_id, status: 'success', transfer_code: transferCode, amount_ghs: wallet.available_balance })
-        } else {
-          console.error(`Payout failed for producer ${wallet.producer_id}:`, data.message)
-          
-          // CRITICAL: Restore balance since external transfer failed inline
-          await supabaseAdmin.rpc('restore_available_balance', {
-             p_producer_id: wallet.producer_id,
-             p_amount: wallet.available_balance
-          })
-
-          payoutResults.push({ producer_id: wallet.producer_id, status: 'failed', error: data.message })
-        }
-      } catch (err: any) {
-        console.error(`Payout error for producer ${wallet.producer_id}:`, err)
-        // If an exception occurs, ensure we don't hold the balance hostage
-        payoutResults.push({ producer_id: wallet.producer_id, status: 'failed', error: err.message })
-      }
+      } catch (error) { console.error('Payout remains reserved for reconciliation', { reference: attempt.reference, error }) }
+      finally { await admin.from('payouts').update({ updated_at: new Date().toISOString() }).eq('id',attempt.id) }
     }
-
-    return NextResponse.json({
-      message: `Processed ${wallets.length} wallet(s).`,
-      results: payoutResults,
-    })
-  } catch (err: any) {
-    console.error('Payout cron failed:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    if (new URL(request.url).searchParams.get('reconcile_only') === '1') return NextResponse.json({ reconciled: attempts?.length || 0 })
+    const { data: wallets, error } = await admin.rpc('eligible_payout_wallets')
+    if (error) throw error
+    for (const wallet of wallets || []) {
+      const bd = wallet.bank_details || {}
+      const mobile = bd.default_payout === 'mobile_money'
+      const details = mobile ? bd.mobile_money : (bd.bank || bd)
+      const recipient = mobile ? wallet.mobile_money_recipient_code : wallet.recipient_code
+      // This merchant collects/settles in GHS. Other countries need a separately
+      // configured payout rail; currency conversion alone does not enable it.
+      if (!recipient || details?.country !== 'Ghana') continue
+      const payload = { source:'balance', amount:Math.round(Number(wallet.available_balance)*100),
+        currency:'GHS', recipient, reason:'BeatToday Earnings', reference:`bt-payout-${randomUUID()}` }
+      const { data: attemptId, error: reserveError } = await admin.rpc('begin_payout',{
+        p_producer:wallet.producer_id,p_amount:wallet.available_balance,p_payload:payload,
+      })
+      if (reserveError) { console.error('Payout reservation failed',reserveError); continue }
+      if (!attemptId) continue
+      try {
+        const { result } = await paystack('transfer',payload)
+        if (result.status) {
+          const { error: finishError } = await admin.rpc('finish_payout',{
+            p_reference:payload.reference,p_status:result.data.status,p_code:result.data.transfer_code || null,
+          })
+          if (finishError) throw finishError
+        } else console.warn('Transfer initiation needs reconciliation',payload.reference)
+        results.push({ reference: payload.reference, pending: true })
+      } catch (error) { console.error('Transfer outcome unknown; preserved for reconciliation',{ reference:payload.reference,error }) }
+    }
+    return NextResponse.json({ results })
+  } catch (error) {
+    console.error('Payout cycle failed',error)
+    return NextResponse.json({ error:'Payout cycle requires review' },{status:500})
   }
 }

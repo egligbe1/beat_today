@@ -26,6 +26,7 @@ export default function ContactButton({ producerId, className }: { producerId: s
         body: JSON.stringify({ recipient_id: producerId, content: 'Hi! I wanted to reach out about your beats.' })
       })
       const data = await res.json()
+      if (!res.ok || !data.conversation_id) throw new Error('Unable to start conversation')
       if (data.conversation_id) {
         router.push(`/messages/${data.conversation_id}`)
       }

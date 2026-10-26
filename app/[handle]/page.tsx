@@ -1,3 +1,4 @@
+import { safeExternalUrl } from '@/lib/security'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
@@ -10,8 +11,9 @@ import BeatCard from '@/components/beats/BeatCard'
 import { MapPin, Music, Users, Music2, TrendingUp, Star, Globe, Heart } from 'lucide-react'
 import type { Metadata } from 'next'
 
-export async function generateMetadata({ params }: { params: { handle: string } }): Promise<Metadata> {
-  const supabase = createClient()
+export async function generateMetadata(props: { params: Promise<{ handle: string }> }): Promise<Metadata> {
+  const params = await props.params;
+  const supabase = await createClient()
   const cleanHandle = decodeURIComponent(params.handle).replace(/^@/, '')
   const { data: profile } = await supabase
     .from('users_profiles')
@@ -42,13 +44,14 @@ export async function generateMetadata({ params }: { params: { handle: string } 
   }
 }
 
-export default async function UserProfilePage({ params }: { params: { handle: string } }) {
-  const supabase = createClient()
+export default async function UserProfilePage(props: { params: Promise<{ handle: string }> }) {
+  const params = await props.params;
+  const supabase = await createClient()
   const cleanHandle = decodeURIComponent(params.handle).replace(/^@/, '')
 
   const { data: profile, error } = await supabase
     .from('users_profiles')
-    .select('*, producer_settings(*)')
+    .select('*, producer_public_tiers(*)')
     .eq('handle', cleanHandle)
     .single()
 
@@ -56,10 +59,9 @@ export default async function UserProfilePage({ params }: { params: { handle: st
     return notFound()
   }
 
-  // getSession() reads the cookie locally (no network); run the follow-status
-  // check and the followers count together instead of in series.
-  const { data: { session } } = await supabase.auth.getSession()
-  const viewerId = session?.user?.id
+  // Validate the viewer before personalized follow-status reads.
+  const { data: { user: viewer } } = await supabase.auth.getUser()
+  const viewerId = viewer?.id
 
   const [followRes, followersRes] = await Promise.all([
     viewerId
@@ -74,13 +76,13 @@ export default async function UserProfilePage({ params }: { params: { handle: st
 
   if (isProducer) {
     // ---- PRODUCER VIEW LOGIC ----
-    let settings = Array.isArray(profile.producer_settings) 
-      ? profile.producer_settings[0] 
-      : profile.producer_settings
+    let settings = Array.isArray(profile.producer_public_tiers)
+      ? profile.producer_public_tiers[0]
+      : profile.producer_public_tiers
 
     if (!settings) {
       const { data: fallbackSettings } = await supabase
-        .from('producer_settings')
+        .from('producer_public_tiers')
         .select('*')
         .eq('user_id', profile.id)
         .maybeSingle()
@@ -91,7 +93,7 @@ export default async function UserProfilePage({ params }: { params: { handle: st
     const [beatsRes, servicesRes] = await Promise.all([
       supabase
         .from('beats')
-        .select('*, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
+        .select('id,producer_id,title,genre,mood_tags,bpm,key,cover_url,mp3_preview_url,watermarked_preview_url,price_mp3,price_wav,price_trackout,price_exclusive,play_count,is_exclusive_sold,status,is_free,product_type,watermark_status,likes_count,comments_count,created_at,updated_at, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
         .eq('producer_id', profile.id)
         .eq('status', 'active')
         .order('created_at', { ascending: false }),
@@ -173,7 +175,7 @@ function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlay
             {/* Basic Info */}
             <div className="flex-1 space-y-5">
                 <div className="flex flex-col md:flex-row items-center gap-3">
-                    {(settings?.subscription_tier || '').toUpperCase() === 'PRO' && (
+                    {settings?.expires_at && Date.parse(settings.expires_at) > Date.now() && settings.subscription_tier === 'PRO' && (
                         <span className="bg-gradient-to-r from-[#FFB000] to-[#FF5500] text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-[0.2em] flex items-center gap-2 shadow-[0_0_30px_rgba(255,176,0,0.3)]">
                             <TrendingUp className="w-3.5 h-3.5" /> PRO Producer
                         </span>
@@ -251,8 +253,8 @@ function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlay
                   <div className="bg-bg-surface p-6 rounded-3xl border border-border-subtle space-y-4">
                       <h3 className="font-bold uppercase tracking-widest text-sm text-text-muted">Social Links</h3>
                       <div className="space-y-3">
-                          {profile.social_links.website && (
-                            <a href={profile.social_links.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-white transition-colors">
+                          {safeExternalUrl(profile.social_links.website) && (
+                            <a href={safeExternalUrl(profile.social_links.website)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-white transition-colors">
                               <Globe className="w-4 h-4" /> Website
                             </a>
                           )}
@@ -352,8 +354,8 @@ function renderArtistProfile({ profile, followersCount, isFollowing, favoritedBe
                   <div className="bg-bg-surface p-6 rounded-3xl border border-border-subtle space-y-4">
                       <h3 className="font-bold uppercase tracking-widest text-sm text-text-muted">Social Links</h3>
                       <div className="space-y-3">
-                          {profile.social_links.website && (
-                            <a href={profile.social_links.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-white transition-colors">
+                          {safeExternalUrl(profile.social_links.website) && (
+                            <a href={safeExternalUrl(profile.social_links.website)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-sm text-text-muted hover:text-white transition-colors">
                               <Globe className="w-4 h-4" /> Website
                             </a>
                           )}

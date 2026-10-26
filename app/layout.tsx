@@ -1,17 +1,20 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import dynamic from 'next/dynamic'
+import '@fontsource/inter/latin-400.css'
+import '@fontsource/inter/latin-500.css'
+import '@fontsource/inter/latin-600.css'
+import '@fontsource/inter/latin-700.css'
+import '@fontsource/inter/latin-800.css'
+import '@fontsource/inter/latin-900.css'
 import './globals.css'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
-const CartDrawer = dynamic(() => import('@/components/cart/CartDrawer'), { ssr: false })
+import ClientOverlays from '@/components/layout/ClientOverlays'
 import { CurrencyProvider } from '@/lib/providers/CurrencyProvider'
 import { Toaster } from 'react-hot-toast'
 
 // Lazy-load WaveSurfer player — it's ~200KB and not needed on initial render
-const GlobalPlayer = dynamic(() => import('@/components/player/GlobalPlayer'), { ssr: false })
 
-const inter = Inter({ subsets: ['latin'], display: 'swap' })
+
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
@@ -37,7 +40,7 @@ export const metadata: Metadata = {
     siteName: 'BeatToday',
     images: [
       {
-        url: '/og-image.jpg',
+        url: '/hero-studio.webp',
         width: 1200,
         height: 630,
         alt: 'BeatToday Marketplace',
@@ -50,7 +53,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'BeatToday | The Premium Beat Marketplace',
     description: 'License high-quality instrumentals to power your next hit.',
-    images: ['/og-image.jpg'],
+    images: ['/hero-studio.webp'],
   },
   icons: {
     icon: '/icon.webp',
@@ -70,7 +73,7 @@ export default function RootLayout({
         {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} />}
         {supabaseOrigin && <link rel="dns-prefetch" href={supabaseOrigin} />}
       </head>
-      <body className={inter.className}>
+      <body className="font-sans">
         <CurrencyProvider>
           <Navbar />
           {/* pb-24 on mobile ensures fixed player bar doesn't cover page content */}
@@ -78,8 +81,7 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
-          <GlobalPlayer />
-          <CartDrawer />
+          <ClientOverlays />
           <Toaster
             position="top-right"
             toastOptions={{

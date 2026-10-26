@@ -1,4 +1,5 @@
 'use client'
+import { effectiveTier } from '@/lib/security'
 
 import Link from 'next/link'
 
@@ -61,7 +62,7 @@ interface SettingsFormState {
 
 export default function SettingsForm({ profile, settings, role = 'producer' }: { profile: any; settings: any; role?: string }) {
   const isProducer = role === 'producer'
-  const isPro = (settings?.subscription_tier || 'FREE').toUpperCase() === 'PRO'
+  const isPro = effectiveTier(settings) === 'PRO'
 
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -212,7 +213,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
       const { publicUrl } = await uploadToR2({ purpose: 'avatar', file, ext: 'webp', contentType: 'image/webp' })
       if (!publicUrl) throw new Error('Upload failed')
       setForm(prev => ({ ...prev, avatar_url: publicUrl }))
-      await supabase.from('users_profiles').update({ avatar_url: publicUrl }).eq('id', profile.id)
+      const { error: profileError } = await supabase.from('users_profiles').update({ avatar_url: publicUrl }).eq('id', profile.id)
     } catch (err: any) {
       setError('Avatar upload failed: ' + err.message)
     } finally {
@@ -255,7 +256,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
 
     try {
       // 1. Update Profile
-      await supabase.from('users_profiles').update({
+      const { error: profileError } = await supabase.from('users_profiles').update({
         display_name: form.display_name,
         bio: form.bio,
         avatar_url: form.avatar_url,
@@ -268,6 +269,7 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
           spotify: form.social_spotify || null,
         },
       }).eq('id', profile.id)
+      if (profileError) throw profileError
 
       // Build structured bank_details with both methods preserved (Only for producers)
       if (isProducer) {
@@ -293,14 +295,11 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
         }
 
         // 2. Save to producer_settings AND wallets
-        await Promise.all([
-          supabase.from('producer_settings')
-            .update({ bank_details: bankDetails })
-            .eq('user_id', profile.id),
-          supabase.from('wallets')
-            .update({ bank_details: bankDetails })
-            .eq('producer_id', profile.id)
-        ])
+        const preferences = await fetch('/api/payouts/preferences', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bank_details: bankDetails }),
+        })
+        if (!preferences.ok) throw new Error('Unable to save payout preferences')
 
         // 3. Register Paystack recipient(s)
         const activeMethod = form.default_payout
@@ -319,8 +318,8 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
             }),
           })
           const d = await res.json()
-          if (!d.success) setError('Bank saved, but recipient setup failed: ' + d.error)
-          else setVerificationMessage('Bank account verified and ready for automatic payouts.')
+          if (!d.success) throw new Error('Bank saved, but recipient setup failed: ' + d.error)
+          else setVerificationMessage(d.manualReview ? 'Details saved for manual payout review. Automatic payouts currently support Ghana.' : 'Bank account verified and ready for automatic payouts.')
         }
 
         if (activeMethod === 'mobile_money' && form.mobile_number && form.mobile_network) {
@@ -336,8 +335,8 @@ export default function SettingsForm({ profile, settings, role = 'producer' }: {
             }),
           })
           const d = await res.json()
-          if (!d.success) setError('Mobile money saved, but recipient setup failed: ' + d.error)
-          else setVerificationMessage('Mobile money account registered for automatic payouts.')
+          if (!d.success) throw new Error('Mobile money saved, but recipient setup failed: ' + d.error)
+          else setVerificationMessage(d.manualReview ? 'Details saved for manual payout review. Automatic payouts currently support Ghana.' : 'Mobile money account registered for automatic payouts.')
         }
       }
 

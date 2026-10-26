@@ -5,7 +5,8 @@ import { Search as SearchIcon, Music } from 'lucide-react'
 import SearchFiltersPanel from './SearchFiltersPanel'
 import type { Metadata } from 'next'
 
-export function generateMetadata({ searchParams }: { searchParams: { q?: string; genre?: string } }): Metadata {
+export async function generateMetadata(props: { searchParams: Promise<{ q?: string; genre?: string }> }): Promise<Metadata> {
+  const searchParams = await props.searchParams;
   const q = searchParams.q?.trim()
   const genre = searchParams.genre && searchParams.genre !== 'All' ? searchParams.genre : undefined
   const title = q
@@ -19,12 +20,13 @@ export function generateMetadata({ searchParams }: { searchParams: { q?: string;
   }
 }
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams: { q?: string; genre?: string; minBpm?: string; maxBpm?: string; mood?: string; sort?: string }
-}) {
-  const supabase = createClient()
+export default async function SearchPage(
+  props: {
+    searchParams: Promise<{ q?: string; genre?: string; minBpm?: string; maxBpm?: string; mood?: string; sort?: string }>
+  }
+) {
+  const searchParams = await props.searchParams;
+  const supabase = await createClient()
   const query = searchParams.q || ''
   const genre = searchParams.genre || 'All'
   const sort = searchParams.sort || 'newest'

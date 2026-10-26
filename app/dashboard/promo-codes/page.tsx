@@ -1,3 +1,4 @@
+import { effectiveTier } from '@/lib/security'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Tag, Lock } from 'lucide-react'
@@ -5,7 +6,7 @@ import PromoCodeManager from './PromoCodeManager'
 import Link from 'next/link'
 
 export default async function PromoCodesPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -14,11 +15,11 @@ export default async function PromoCodesPage() {
 
   const { data: settings } = await supabase
     .from('producer_settings')
-    .select('subscription_tier')
+    .select('subscription_tier, subscription_active, subscription_expires_at')
     .eq('user_id', user.id)
     .single()
 
-  const tier = (settings?.subscription_tier || 'free').toLowerCase()
+  const tier = effectiveTier(settings).toLowerCase()
   const canUsePromoCodes = tier === 'starter' || tier === 'pro'
 
   if (!canUsePromoCodes) {

@@ -16,18 +16,20 @@ const PAYSTACK_CURRENCY: Record<string, string> = {
 
 export async function POST(req: Request) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return new NextResponse('Unauthorized', { status: 401 })
 
     const body = await req.json()
     const { method = 'bank', country = 'Ghana' } = body
+    const { data: profile } = await supabaseAdmin.from('users_profiles').select('role').eq('id', user.id).single()
+    if (profile?.role !== 'producer') return NextResponse.json({ error: 'Producer account required' }, { status: 403 })
 
     const secret = process.env.PAYSTACK_SECRET_KEY
     if (!secret) throw new Error('Paystack secret key not configured.')
 
     const currency = PAYSTACK_CURRENCY[country]
-    if (!currency) {
+    if (!currency || country !== 'Ghana') {
       // Non-Paystack country — save details for manual review, no recipient code
       await upsertWallet(user.id, null, null, supabase)
       return NextResponse.json({ success: true, recipient_code: null, manualReview: true })

@@ -9,7 +9,7 @@ export default async function WalletPage() {
   const { user } = await getCachedAuthContext()
   if (!user) redirect('/login')
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: wallet } = await supabase
     .from('wallets')

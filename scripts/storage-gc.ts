@@ -15,7 +15,11 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 const BUCKETS = ['beat-files', 'beat-previews', 'beat-covers']
-const DRY_RUN = process.argv.includes('--execute') === false
+const DRY_RUN = true
+if (process.argv.includes('--execute')) {
+  console.error('Deletion is disabled. Storage cleanup requires a separate reviewed preservation plan.')
+  process.exit(1)
+}
 
 async function storageGC() {
   console.log(`\n🚀 Starting Storage Garbage Collection (${DRY_RUN ? 'DRY RUN' : 'EXECUTE MODE'})`)

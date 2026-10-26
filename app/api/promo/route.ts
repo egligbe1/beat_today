@@ -1,3 +1,4 @@
+import { effectiveTier } from '@/lib/security'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
@@ -11,7 +12,15 @@ const supabaseAdmin = createAdminClient(
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')?.toUpperCase()
-  const orderAmount = parseFloat(searchParams.get('amount') || '0')
+  let items: any[]
+  try { items = JSON.parse(searchParams.get('items') || '[]') } catch { return NextResponse.json({ error: 'Invalid cart' }, { status: 400 }) }
+  if (!Array.isArray(items) || items.length < 1 || items.length > 20) return NextResponse.json({ error: 'Invalid cart' }, { status: 400 })
+  const { data: beats, error: beatError } = await supabaseAdmin.from('beats')
+    .select('id,producer_id,price_mp3,price_wav,price_trackout,price_exclusive').in('id', items.map(i => i.beat_id))
+  if (beatError) return NextResponse.json({ error: 'Unable to validate cart' }, { status: 500 })
+  const priceKey: Record<string,string> = { mp3: 'price_mp3', wav: 'price_wav', trackout: 'price_trackout', exclusive: 'price_exclusive' }
+  const pricedItems = items.map(i => { const beat = beats?.find(b => b.id === i.beat_id); return { producer_id: beat?.producer_id, price: Number((beat as any)?.[priceKey[i.license_type]] || 0) } })
+  const orderAmount = pricedItems.reduce((sum,i) => sum + i.price, 0)
 
   if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 })
 
@@ -41,12 +50,14 @@ export async function GET(req: Request) {
     }, { status: 400 })
   }
 
+  const eligibleAmount = pricedItems.filter(i => !promo.producer_id || i.producer_id === promo.producer_id).reduce((sum,i) => sum+i.price,0)
+  if (eligibleAmount <= 0) return NextResponse.json({ error: 'This code does not apply to these beats' }, { status: 400 })
   // Calculate discount
   let discountAmount = 0
   if (promo.discount_type === 'percentage') {
-    discountAmount = (orderAmount * promo.discount_value) / 100
+    discountAmount = (eligibleAmount * promo.discount_value) / 100
   } else {
-    discountAmount = Math.min(promo.discount_value, orderAmount)
+    discountAmount = Math.min(promo.discount_value, eligibleAmount)
   }
 
   return NextResponse.json({
@@ -61,7 +72,7 @@ export async function GET(req: Request) {
 
 // POST /api/promo — create a promo code (producer only)
 export async function POST(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -77,11 +88,11 @@ export async function POST(req: Request) {
 
   const { data: prodSettings } = await supabaseAdmin
     .from('producer_settings')
-    .select('subscription_tier')
+    .select('subscription_tier, subscription_active, subscription_expires_at')
     .eq('user_id', user.id)
     .single()
 
-  const tier = (prodSettings?.subscription_tier || 'free').toLowerCase()
+  const tier = effectiveTier(prodSettings).toLowerCase()
   if (tier !== 'starter' && tier !== 'pro') {
     return NextResponse.json({ error: 'Promo codes require a STARTER or PRO subscription.' }, { status: 403 })
   }
@@ -127,7 +138,7 @@ export async function POST(req: Request) {
 
 // DELETE /api/promo?id=xxx
 export async function DELETE(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

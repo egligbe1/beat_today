@@ -31,27 +31,26 @@ export function AuthProvider({
   const supabase = createClient()
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        setUser(session.user)
-        // If we don't have a profile yet (or it's a different user), fetch it
-        if (!profile || profile.id !== session.user.id) {
-          const { data } = await supabase
-            .from('users_profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          setProfile(data)
-        }
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+      if (!session?.user) setProfile(null)
       setLoading(false)
     })
-
     return () => subscription.unsubscribe()
-  }, [supabase, profile])
+  }, [supabase])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!user || profile?.id === user.id) return
+    setProfile(null)
+    supabase.from('users_profiles').select('*').eq('id', user.id).single().then(({ data, error }) => {
+      if (!cancelled) {
+        if (error) console.error('Profile lookup failed', error)
+        setProfile(data)
+      }
+    })
+    return () => { cancelled = true }
+  }, [user, profile, supabase])
 
   return (
     <AuthContext.Provider value={{ user, profile, loading }}>

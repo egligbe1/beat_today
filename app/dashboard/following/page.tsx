@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 export default async function FollowingPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {

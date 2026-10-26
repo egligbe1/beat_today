@@ -9,7 +9,7 @@ export default async function SettingsPage() {
   if (!user) redirect('/login')
   if (!profile) redirect('/complete-profile')
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Only fetch producer settings if the user is a producer
   const { data: settings } = profile.role === 'producer' 

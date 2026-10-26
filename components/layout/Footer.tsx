@@ -10,7 +10,7 @@ const SOCIAL_LINKS = [
 import { createClient } from '@/lib/supabase/server'
 
 export default async function Footer() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   let role = null
 

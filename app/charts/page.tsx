@@ -1,3 +1,4 @@
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPublicClient } from '@/lib/supabase/public'
 import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
@@ -26,26 +27,29 @@ const getChartsData = unstable_cache(
     const [topByPlaysRes, recentSalesRes, risingBeatsRes] = await Promise.all([
       supabase
         .from('beats')
-        .select('*, users_profiles!beats_producer_id_fkey(handle, display_name, avatar_url)')
+        .select('id,producer_id,title,genre,mood_tags,bpm,key,cover_url,mp3_preview_url,watermarked_preview_url,price_mp3,price_wav,price_trackout,price_exclusive,play_count,is_exclusive_sold,status,is_free,product_type,watermark_status,likes_count,comments_count,created_at,updated_at, users_profiles!beats_producer_id_fkey(handle, display_name, avatar_url)')
         .eq('status', 'active')
         .order('play_count', { ascending: false })
         .limit(20),
-      supabase
-        .from('order_items')
-        .select('beat_id, price, beats(id, title, cover_url, genre, bpm, price_mp3, play_count, producer_id, users_profiles!beats_producer_id_fkey(handle, display_name))')
-        .gte('created_at', thirtyDaysAgo.toISOString()),
+      createAdminClient().rpc('sales_chart'),
       supabase
         .from('beats')
-        .select('*, users_profiles!producer_id(handle, display_name, avatar_url)')
+        .select('id,producer_id,title,genre,mood_tags,bpm,key,cover_url,mp3_preview_url,watermarked_preview_url,price_mp3,price_wav,price_trackout,price_exclusive,play_count,is_exclusive_sold,status,is_free,product_type,watermark_status,likes_count,comments_count,created_at,updated_at, users_profiles!producer_id(handle, display_name, avatar_url)')
         .eq('status', 'active')
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('play_count', { ascending: false })
         .limit(8),
     ])
 
+    if (recentSalesRes.error) throw recentSalesRes.error
+    const ranks: any[] = recentSalesRes.data || []
+    const { data: salesBeats } = ranks.length ? await supabase.from('beats')
+      .select('id,title,genre,bpm,cover_url,price_mp3,price_wav,price_trackout,price_exclusive,mp3_preview_url,play_count,producer_id, users_profiles!beats_producer_id_fkey(handle,display_name)')
+      .in('id',ranks.map(r=>r.beat_id)).eq('status','active') : {data:[]}
+    const topBySales = ranks.flatMap(rank => { const beat = salesBeats?.find(b => b.id === rank.beat_id); return beat ? [{ beat: { ...beat, users_profiles: Array.isArray(beat.users_profiles) ? beat.users_profiles[0] : beat.users_profiles }, sales: Number(rank.sales), revenue: Number(rank.revenue) }] : [] })
     return {
       topByPlays: topByPlaysRes.data,
-      recentSales: recentSalesRes.data,
+      topBySales,
       risingBeats: risingBeatsRes.data,
     }
   },
@@ -54,21 +58,7 @@ const getChartsData = unstable_cache(
 )
 
 export default async function ChartsPage() {
-  const { topByPlays, recentSales, risingBeats } = await getChartsData()
-
-  // Aggregate by beat
-  const salesMap: Record<string, { beat: any; sales: number; revenue: number }> = {}
-  recentSales?.forEach((item: any) => {
-    const id = item.beat_id
-    if (!item.beats) return
-    if (!salesMap[id]) salesMap[id] = { beat: item.beats, sales: 0, revenue: 0 }
-    salesMap[id].sales++
-    salesMap[id].revenue += Number(item.price)
-  })
-
-  const topBySales = Object.values(salesMap)
-    .sort((a, b) => b.sales - a.sales)
-    .slice(0, 10)
+  const { topByPlays, topBySales, risingBeats } = await getChartsData()
 
   return (
     <div className="min-h-screen bg-bg-primary">

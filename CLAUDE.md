@@ -46,15 +46,17 @@ platform-fee logic compare against `'PRO'`/`'STARTER'` literally.
   passes `conversion.payout_ratio` (collected ÷ subtotal) through Paystack
   metadata; `fulfillOrder` multiplies by it so the platform doesn't absorb the
   buyer's discount.
-- `fulfillOrder` is **idempotent** via an atomic `pending → completed` flip; it's
-  safe to call from both the webhook and the verify route.
+- The prepared marketplace-integrity implementation settles money, immutable
+  licenses, and delivery jobs together through `settle_order`; it marks the order
+  completed last. `fulfillOrder` retries are safe and email is handled separately.
 - Wallet credits/debits use atomic RPCs (`credit_pending_balance`,
   `deduct_available_balance`, `restore_available_balance`, `clear_ledger_funds`,
   `process_mature_funds`) — never read-modify-write a balance in JS.
 - `deduct_available_balance` returns `void` and **RAISEs** on insufficient funds —
   check the RPC **error**, not the (always-null) `data`.
-- Exclusive beats are reserved atomically at checkout via `reserve_exclusive_beat`
-  (short TTL) to prevent concurrent double-sale.
+- The prepared checkout RPC binds exclusive reservations to an order. Settlement
+  verifies reservation ownership; late conflicting payments require reconciliation.
+  Sold listings are hidden, not deleted. See `REMEDIATION_STATUS.md` before deploying.
 
 ## Frontend
 
@@ -69,6 +71,16 @@ platform-fee logic compare against `'PRO'`/`'STARTER'` literally.
 
 ## Migrations
 
-Forward-only SQL in `supabase/migrations/`, applied in numeric order. Numbering
-has historical gaps (older files were merged into `001`–`009`; see the header
-comments). Newest: `038_financial_and_security_hardening.sql`.
+Do not bulk-apply `supabase/migrations/`: the historical sequence includes the
+destructive `026_wipe_transaction_history.sql`. The reset/setup SQL scripts also
+drop existing data. Follow `AGENTS.md` and review each proposed migration against
+the deployed schema; applying SQL requires explicit authorization.
+
+`039_restrict_financial_access.sql` protections were verified active on
+2026-10-26 via read-only catalog inspection; the agent did not apply SQL and the
+Supabase migration-history listing is empty. See `supabase/LIVE_VERIFICATION.md`.
+Do not replay historical migrations to fill that history. The migration restricts
+internal money RPCs to service role, validates balance operations, and limits
+browser settings writes to user_id/bank_details/updated_at. Billing fields must
+only be written by privileged server code. Permission defaults in 039 apply to
+the migration creator; other function-owner defaults require separate review.

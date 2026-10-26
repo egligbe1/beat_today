@@ -12,7 +12,7 @@ export type AuthContext = {
  * for the duration of the current request.
  */
 export const getCachedAuthContext = cache(async (): Promise<AuthContext> => {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()

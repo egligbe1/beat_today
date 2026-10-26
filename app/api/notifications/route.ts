@@ -9,7 +9,7 @@ const supabaseAdmin = createAdminClient(
 
 // GET /api/notifications — fetch user's notifications
 export async function GET(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -28,13 +28,13 @@ export async function GET(req: Request) {
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const unreadCount = data?.filter(n => !n.is_read).length || 0
+  const { count: unreadCount } = await supabaseAdmin.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false)
   return NextResponse.json({ notifications: data || [], unread_count: unreadCount })
 }
 
 // PATCH /api/notifications — mark as read
 export async function PATCH(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

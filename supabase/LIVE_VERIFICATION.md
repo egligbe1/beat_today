@@ -1,0 +1,98 @@
+# BeatToday live Supabase verification
+
+Verified 2026-10-26 using the connected Supabase integration. Project:
+`BeatToday` (`chutqhuzargkpcmccfbg`), us-east-1, ACTIVE_HEALTHY.
+
+This verification used only project/migration listings, the security advisor,
+and SELECT queries against schema/permission catalogs. No user rows, payments,
+balances, private files, or credentials were read. No SQL changes, migrations,
+maintenance scripts, upgrades, or application flows were executed by the agent.
+
+## Migration 039 protections are active
+
+The deployed state matches the inspected 039 changes, although the migration
+history listing is empty. This confirms effective configuration, not a recorded
+migration version or when/how it was applied. Do not replay historical scripts
+or apply 039 again merely to fill the history table.
+
+- All seven internal money/promo/reservation RPCs deny execution to anon and
+  authenticated, allow service_role, and pin search_path to
+  `pg_catalog, public, pg_temp`.
+- The five replaced financial function bodies contain the expected positive,
+  finite amount validation and mature-ledger clearance protections.
+- Wallets, ledger, payouts, and producer_settings have RLS enabled. Their SELECT
+  policies restrict reads to the owner; no broad wallet-write policy remains.
+- Anon has no SELECT access to those four tables. Authenticated has SELECT but
+  no table-level INSERT/UPDATE/DELETE/TRUNCATE privileges. Wallets, ledger and
+  payouts also deny all column-level INSERT/UPDATE access to both browser roles.
+- Producer-settings column grants allow INSERT only on user_id and UPDATE only
+  on user_id, bank_details, updated_at. Subscription fields, earnings, and play
+  counters are not directly browser-writable.
+- The settings-initialization function has the updated default-row-only body,
+  pinned search_path, and no browser execution grants. Both expected producer
+  profile setup triggers are present.
+- For postgres-created functions, public-schema defaults grant execution to
+  service_role; the global default ACL has no PUBLIC execution grant.
+  Supabase-managed auth/storage/GraphQL defaults remain outside this change.
+
+These are catalog checks, not live mutation tests. The isolated regression
+suite remains the evidence for input rejection and preservation behavior.
+No real payment, onboarding, or clearance operation was triggered here.
+
+## Other audit schema assumptions confirmed
+
+- users_profiles has no email column; beats has no storage_path column.
+- The beat status constraint excludes sold.
+- Wallet producer_id references auth.users, not users_profiles.
+- License records reference order_items, with no direct orders FK.
+- Deleting a beat cascades to its license rows; order-item beat IDs become null.
+- Both catalog views omit master-key columns, but the underlying beats table
+  still contains them. Public row/column exposure and privileged R2 source
+  validation remain separate work; signed downloads were not requested.
+
+## Remaining advisor findings
+
+- Two views use owner permissions: search_catalog and discovery_feed_trending.
+  Review their intended public projections and dependencies before changing
+  view execution behavior. [Advisor guidance](https://supabase.com/docs/guides/database/database-linter?lint=0010_security_definer_view)
+- Ten function overloads lack pinned search paths; eight SECURITY DEFINER
+  functions are executable by each browser role. This includes trigger
+  functions, which cannot normally be directly called as ordinary RPCs; these
+  counts are review signals, not eight confirmed exploitable endpoints.
+  [Search-path guidance](https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable)
+- GraphQL schema-discoverability warnings cover 24 anon-visible and 28
+  authenticated-visible objects. Visibility alone does not prove access to
+  protected rows. Review grants and RLS together, retaining intended catalog
+  access. [Advisor guidance](https://supabase.com/docs/guides/database/database-linter?lint=0026_pg_graphql_anon_table_exposed)
+- Leaked-password protection is disabled. [Password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+- The running Postgres release (17.4.1.075) has outstanding security patches
+  according to the project advisor. Any upgrade is a separate reviewed operation.
+  [Upgrade guidance](https://supabase.com/docs/guides/platform/upgrading)
+
+The next application fixes should address cross-account media operations and
+purchased-asset retention, then retry-safe financial settlement and the confirmed
+schema/query mismatches. No additional database operation is authorized by this
+verification request.
+
+
+## Authorized marketplace-integrity deployment — 2026-10-26
+
+Applied only `20261026154145_marketplace_integrity.sql` via Supabase MCP after
+explicit user approval. Supabase migration history confirms version
+`20261026154145`, name `marketplace_integrity`. No reset, legacy migration replay,
+asset removal, financial operation, provider upgrade or plan purchase occurred.
+
+Before application, pending orders and processing payouts were both zero.
+A private local snapshot captured all 17 rows across the 26 original public
+tables. After application, comparison using the original columns found no changed
+rows or values in any original table (including the catalog, completed orders,
+licenses, ledger, wallets and settings). New columns/tables were added as reviewed.
+The local snapshot is excluded from Git and is not a full database backup.
+
+`prepare_checkout`, `settle_order`, `activate_subscription`, `begin_payout` and
+`finish_payout` deny execute to anon/authenticated and allow service_role. Both
+public views have `security_invoker=true`. The security advisor no longer reports
+owner-permission views or mutable function search paths. Remaining advisories:
+intentional GraphQL schema discoverability, five RLS-protected internal tables
+without browser policies (INFO), leaked-password protection disabled (Free plan),
+and available Postgres patches. Provider controls remain separately pending.

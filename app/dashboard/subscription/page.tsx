@@ -1,3 +1,4 @@
+import { effectiveTier } from '@/lib/security'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Check, Zap, Crown, Sparkles, CheckCircle2 } from 'lucide-react'
@@ -62,12 +63,13 @@ const TIERS = [
   },
 ]
 
-export default async function SubscriptionPage({
-  searchParams,
-}: {
-  searchParams: { subscription?: string; error?: string; tier?: string }
-}) {
-  const supabase = createClient()
+export default async function SubscriptionPage(
+  props: {
+    searchParams: Promise<{ subscription?: string; error?: string; tier?: string }>
+  }
+) {
+  const searchParams = await props.searchParams;
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -76,11 +78,11 @@ export default async function SubscriptionPage({
 
   const { data: settings } = await supabase
     .from('producer_settings')
-    .select('subscription_tier, subscription_expires_at')
+    .select('subscription_tier, subscription_active, subscription_expires_at')
     .eq('user_id', user.id)
     .single()
 
-  const currentTier = (settings?.subscription_tier || 'FREE').toUpperCase()
+  const currentTier = effectiveTier(settings)
   const expiresAt = settings?.subscription_expires_at
     ? new Date(settings.subscription_expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : null
@@ -183,5 +185,5 @@ export default async function SubscriptionPage({
         </p>
       </div>
     </div>
-  )
+  );
 }

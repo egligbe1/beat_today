@@ -1,3 +1,4 @@
+import { rateLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
@@ -30,9 +31,10 @@ export async function GET(req: Request) {
 
 // POST /api/reviews
 export async function POST(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await rateLimit('app/api/reviews/route.ts:' + user.id, 10, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
 
   const body = await req.json()
   const { beat_id, rating, comment } = body
@@ -96,9 +98,10 @@ export async function POST(req: Request) {
 
 // DELETE /api/reviews?beat_id=xxx
 export async function DELETE(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await rateLimit('app/api/reviews/route.ts:' + user.id, 10, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
 
   const { searchParams } = new URL(req.url)
   const beatId = searchParams.get('beat_id')

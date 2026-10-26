@@ -1,3 +1,5 @@
+import { createAdminClient } from '@/lib/supabase/admin'
+import { effectiveTier } from '@/lib/security'
 import { getCachedAuthContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -12,26 +14,30 @@ export default async function SalesPage() {
   if (!user) redirect('/login')
   if (profile?.role !== 'producer') redirect('/dashboard/unauthorized')
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: settings } = await supabase
     .from('producer_settings')
-    .select('subscription_tier')
+    .select('subscription_tier, subscription_active, subscription_expires_at')
     .eq('user_id', user.id)
     .single()
 
-  const tier = (settings?.subscription_tier || 'free').toLowerCase()
+  const tier = effectiveTier(settings).toLowerCase()
   const isStarter = tier === 'starter' || tier === 'pro'
 
-  const { data: sales } = await supabase
+  const { data: salesRows, error: salesError } = await createAdminClient()
     .from('order_items')
     .select(`
-      id, price, license_type, created_at,
-      orders!inner(id, buyer_profiles:users_profiles!buyer_id(display_name, handle)),
+      id, price, net_amount, license_type, created_at,
+      orders!inner(id, status, buyer_profiles:users_profiles!buyer_id(display_name, handle)),
       beats(id, cover_url, title, play_count)
     `)
     .eq('producer_id', user.id)
-    .order('created_at', { ascending: false })
+    .eq('orders.status', 'completed')
+    .order('created_at', { ascending: false }).limit(1000)
+
+  if (salesError) throw salesError
+  const sales = salesRows?.map(item => ({ ...item, price: Number(item.net_amount ?? item.price) }))
 
   const { data: allBeats } = await supabase
     .from('beats')
@@ -139,8 +145,8 @@ export default async function SalesPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { icon: DollarSign, label: 'Lifetime Revenue', value: formatCurrency(totalSales), color: 'text-accent-gold', bg: 'bg-accent-gold/10' },
-          { icon: ShoppingCart, label: 'Total Sales', value: String(sales?.length || 0), color: 'text-accent-green', bg: 'bg-accent-green/10' },
+          { icon: DollarSign, label: 'Recent net sales (USD)', value: formatCurrency(totalSales), color: 'text-accent-gold', bg: 'bg-accent-gold/10' },
+          { icon: ShoppingCart, label: 'Recent Paid Sales', value: String(sales?.length || 0), color: 'text-accent-green', bg: 'bg-accent-green/10' },
           { icon: Play, label: 'Total Plays', value: totalPlays.toLocaleString(), color: 'text-accent-orange', bg: 'bg-accent-orange/10' },
           { icon: TrendingUp, label: 'Play→Purchase', value: `${conversionRate}%`, color: 'text-blue-400', bg: 'bg-blue-400/10' },
         ].map(({ icon: Icon, label, value, color, bg }) => (

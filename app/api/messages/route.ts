@@ -1,3 +1,4 @@
+import { rateLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
@@ -9,13 +10,14 @@ const supabaseAdmin = createAdminClient(
 
 // POST /api/messages — send a message (creates conversation if needed)
 export async function POST(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await rateLimit('app/api/messages/route.ts:' + user.id, 30, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
 
   const { recipient_id, content, conversation_id } = await req.json()
 
-  if (!content?.trim()) {
+  if (typeof content !== 'string' || !content.trim() || content.length > 5000) {
     return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 })
   }
 
@@ -75,7 +77,7 @@ export async function POST(req: Request) {
     .eq('id', convId)
 
   // Notify recipient
-  const otherUserId = recipient_id || await getOtherParticipant(convId, user.id)
+  const otherUserId = await getOtherParticipant(convId, user.id)
   if (otherUserId) {
     const { data: sender } = await supabaseAdmin
       .from('users_profiles')

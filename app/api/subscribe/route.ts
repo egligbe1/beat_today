@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getExchangeRates } from '@/lib/utils/rates'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { randomUUID } from 'node:crypto'
+import { rateLimit } from '@/lib/rateLimit'
 
 // Annual subscription prices in USD — converted to GHS at checkout
 const TIER_PRICES_USD: Record<string, number> = {
@@ -9,9 +12,10 @@ const TIER_PRICES_USD: Record<string, number> = {
 }
 
 export async function POST(req: Request) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await rateLimit(`subscribe:${user.id}`, 5, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
 
   const { tier } = await req.json()
   if (!['STARTER', 'PRO'].includes(tier)) {
@@ -20,11 +24,11 @@ export async function POST(req: Request) {
 
   const { data: profile } = await supabase
     .from('users_profiles')
-    .select('email, display_name')
+    .select('display_name')
     .eq('id', user.id)
     .single()
 
-  const email = profile?.email || user.email
+  const email = user.email
   if (!email) return NextResponse.json({ error: 'No email found' }, { status: 400 })
 
   // Convert USD price → GHS (Paystack only supports GHS for this merchant)
@@ -36,6 +40,11 @@ export async function POST(req: Request) {
 
   const usdPrice = TIER_PRICES_USD[tier]
   const ghsAmount = Math.round(usdPrice * ghsRate * 100) // Paystack amount in pesewas
+  const reference = `BT-SUB-${randomUUID()}`
+  const { error: saveError } = await createAdminClient().from('subscription_payments').insert({
+    reference, user_id: user.id, tier, expected_minor: ghsAmount,
+  })
+  if (saveError) throw saveError
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   const callbackUrl = `${siteUrl}/api/subscribe/callback?tier=${tier}&user_id=${user.id}`
@@ -49,6 +58,7 @@ export async function POST(req: Request) {
     },
     body: JSON.stringify({
       email,
+      reference,
       amount: ghsAmount,
       currency: 'GHS',
       callback_url: callbackUrl,

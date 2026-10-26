@@ -1,66 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-
-const supabaseAdmin = createAdminClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-// PATCH /api/negotiations/[id] -> Update offer status (ACCEPT, DECLINE, COUNTER)
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { status, amount, message } = await request.json()
-    const offerId = params.id
-
-    // Only the producer can accept/decline. Buyers can only counter a counter-offer.
-    // For simplicity, we assume RLS checks this.
-
-    const updateData: any = { status, updated_at: new Date().toISOString() }
-    if (amount) updateData.amount = amount
-    if (message) updateData.message = message
-
-    if (status === 'ACCEPTED') {
-      const expires = new Date()
-      expires.setHours(expires.getHours() + 48) // Offer valid for 48 hours
-      updateData.expires_at = expires.toISOString()
-      // Generate a checkout URL that skips the cart and goes straight to checkout
-      // We could use a standard checkout route and append ?offer_id=xxx
-      updateData.checkout_url = `/checkout?offer_id=${offerId}` 
-    }
-
-    const { data: updatedOffer, error } = await supabase
-      .from('offers')
-      .update(updateData)
-      .eq('id', offerId)
-      .select()
-      .single()
-
-    if (error) throw error
-
-    // Notify the other party depending on who made the action
-    const isProducerActing = updatedOffer.producer_id === user.id
-    const notifyUserId = isProducerActing ? updatedOffer.buyer_id : updatedOffer.producer_id
-
-    // Cross-user notification — must go through the service role.
-    await supabaseAdmin.from('notifications').insert({
-      user_id: notifyUserId,
-      type: 'offer_update',
-      title: `Offer ${status}`,
-      body: `An offer has been updated to ${status}.`,
-      link: isProducerActing ? '/messages' : '/dashboard/offers'
-    })
-
-    return NextResponse.json({ offer: updatedOffer })
-  } catch (error: any) {
-    console.error('Error updating offer:', error)
-    return NextResponse.json({ error: 'Could not update offer' }, { status: 500 })
-  }
+export async function PATCH(request: Request,{params}:{params:Promise<{id:string}>}) {
+  const {data:{user}}=await (await createClient()).auth.getUser()
+  if(!user)return NextResponse.json({error:'Unauthorized'},{status:401})
+  const {status,amount,message}=await request.json()
+  const {data,error}=await createAdminClient().rpc('transition_offer',{
+    p_offer:(await params).id,p_user:user.id,p_status:status,p_amount:amount ? Number(amount) : null,p_message:typeof message==='string'?message.slice(0,2000):null,
+  })
+  if(error)return NextResponse.json({error:'Offer transition unavailable'},{status:409})
+  return NextResponse.json({offer:data})
 }

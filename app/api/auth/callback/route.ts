@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || requestUrl.origin
 
   if (code) {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error && session) {

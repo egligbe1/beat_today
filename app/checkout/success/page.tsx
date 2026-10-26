@@ -7,26 +7,27 @@ import { formatCurrency } from '@/lib/utils'
 import LicenseModal from '@/components/library/LicenseModal'
 import DownloadButton from '@/components/library/DownloadButton'
 
-export default async function CheckoutSuccessPage({
-  searchParams,
-}: {
-  searchParams: { order_id?: string }
-}) {
+export default async function CheckoutSuccessPage(
+  props: {
+    searchParams: Promise<{ order_id?: string }>
+  }
+) {
+  const searchParams = await props.searchParams;
   const orderId = searchParams.order_id
-  
+
   if (!orderId) {
     return notFound()
   }
 
-  const supabase = createClient()
-  
+  const supabase = await createClient()
+
   // 1. Fetch Order and Items
   const { data: order } = await supabase
     .from('orders')
     .select('*, buyer_profiles:users_profiles!buyer_id(*)')
     .eq('id', orderId)
     .single()
-    
+
   if (!order) {
     return notFound()
   }

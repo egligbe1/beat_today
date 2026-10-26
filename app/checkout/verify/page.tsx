@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/lib/utils/toast'
+import { invalidateOwnedLicenses } from '@/lib/hooks/useOwnedLicenses'
 
 export default function CheckoutVerifyPage() {
   const router = useRouter()
@@ -33,6 +34,7 @@ export default function CheckoutVerifyPage() {
         const data = await response.json()
 
         if (data.success) {
+          invalidateOwnedLicenses()
           // Payment successful, redirect to success page
           router.push(`/checkout/success?order_id=${data.order_id}`)
         } else {

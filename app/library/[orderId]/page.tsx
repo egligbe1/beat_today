@@ -7,8 +7,9 @@ import { ArrowLeft, FileText } from 'lucide-react'
 import DownloadButton from '@/components/library/DownloadButton'
 import LicenseModal from '@/components/library/LicenseModal'
 
-export default async function LibraryOrderPage({ params }: { params: { orderId: string } }) {
-  const supabase = createClient()
+export default async function LibraryOrderPage(props: { params: Promise<{ orderId: string }> }) {
+  const params = await props.params;
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?redirect=/library')
 
