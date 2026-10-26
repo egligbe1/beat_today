@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useState } from 'react'
+import { requestedAuthReturn } from '@/lib/authReturn'
 import { getSiteUrl } from '@/lib/utils/url'
 
 export default function SocialLogin() {
@@ -9,7 +10,9 @@ export default function SocialLogin() {
   const supabase = createClient()
 
   const getAuthRedirectUrl = () => {
-    return `${getSiteUrl()}/api/auth/callback`
+    const callback = new URL('/api/auth/callback', getSiteUrl())
+    callback.searchParams.set('next', requestedAuthReturn(window.location.search))
+    return callback.href
   }
 
   const handleGoogleLogin = async () => {

@@ -1,3 +1,4 @@
+import { authReturnTo } from '@/lib/authReturn'
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -74,7 +75,7 @@ export async function middleware(request: NextRequest) {
 
     // Redirect authenticated users away from login/signup
     if (user && (pathname === '/login' || pathname === '/signup')) {
-      return redirectTo('/')
+      return redirectTo(authReturnTo(request.nextUrl.searchParams.get('redirect') || request.nextUrl.searchParams.get('next')))
     }
   }
 

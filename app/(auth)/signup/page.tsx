@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { requestedAuthReturn } from '@/lib/authReturn'
 import SocialLogin from '@/components/auth/SocialLogin'
 import CountrySelect from '@/components/ui/CountrySelect'
 import { showToast } from '@/lib/utils/toast'
@@ -26,9 +27,11 @@ export default function SignupPage() {
   
   const router = useRouter()
   const supabase = createClient()
+  const [returnPath, setReturnPath] = useState('/')
+  useEffect(() => { setReturnPath(requestedAuthReturn(window.location.search)) }, [])
 
   const getAuthRedirectUrl = () => {
-    return `${getSiteUrl()}/api/auth/callback`
+    return `${getSiteUrl()}/api/auth/callback?next=${encodeURIComponent(requestedAuthReturn(window.location.search))}`
   }
 
   useEffect(() => {
@@ -104,7 +107,7 @@ export default function SignupPage() {
         })
       }
 
-      router.push('/')
+      router.push(authData.session ? '/complete-profile?next=' + encodeURIComponent(requestedAuthReturn(window.location.search)) : requestedAuthReturn(window.location.search))
       showToast.success('Signup successful! Please check your email to confirm your account.')
       router.refresh()
     }
@@ -218,7 +221,7 @@ export default function SignupPage() {
 
         <p className="mt-6 text-center text-sm text-text-muted">
           Already have an account?{' '}
-          <Link href="/login" className="text-accent-orange hover:underline">
+          <Link href={'/login?redirect=' + encodeURIComponent(returnPath)} className="text-accent-orange hover:underline">
             Login
           </Link>
         </p>

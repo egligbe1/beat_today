@@ -1,4 +1,5 @@
 import 'server-only'
+import { addDateDays } from './booking'
 import { createClient } from '@/lib/supabase/server'
 import { missingStudioSchema } from './domain'
 import type { StudioBooking, StudioBookingCatalog, StudioRoom, StudioSessionService, StudioOpeningHours, StudioTimeBlock } from '@/lib/types'
@@ -24,7 +25,7 @@ export async function bookingWorkspace(userId: string, studioId: string, today: 
   db.from('studio_rooms').select('*').eq('studio_id', studioId).order('created_at'),
   db.from('studio_session_services').select('*').order('created_at').limit(40),
   db.from('studio_opening_hours').select('*').order('weekday'),
-  db.from('studio_time_blocks').select('*').eq('is_active',true).gte('ends_at',today).order('starts_at').limit(200),
+  db.from('studio_time_blocks').select('*').eq('is_active',true).gte('ends_at',addDateDays(today,-1)).order('starts_at').limit(200),
  ])
  if ([bookings, rooms, services, hours, blocks].some(r => missingStudioSchema(r.error))) return null
  if ([bookings, rooms, services, hours, blocks].some(r => r.error)) throw new Error('Bookings could not be loaded')

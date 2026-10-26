@@ -98,3 +98,11 @@ Verified all 55 isolated tests, including authenticated/anonymous catalog parity
 unpublished studio privacy, inactive services and PRO expiry. Desktop and 390px
 mobile visual checks cover published, unavailable and owner states using fictional
 local fixtures only. Production build uses dummy credentials.
+
+## Functional journey follow-up
+
+See BOOKING_FUNCTIONAL_AUDIT.md for the re-audit, resolved journey failures and
+isolated browser evidence. The complete fictional request → reservation → exact
+agreement → artist acceptance → confirmed booking flow was exercised. The follow-up
+also covers booking return after sign-in, guided setup, free-day search, conflict
+recovery, expiry and consent on changing agreement versions. No SQL change required.

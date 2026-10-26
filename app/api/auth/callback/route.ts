@@ -1,3 +1,4 @@
+import { authReturnTo } from '@/lib/authReturn'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -6,7 +7,7 @@ export async function GET(request: Request) {
   const searchParams = requestUrl.searchParams
   const code = searchParams.get('code')
   // if "next" is in search params, use it as the redirection URL
-  const next = searchParams.get('next') ?? '/'
+  const next = authReturnTo(searchParams.get('next'))
   const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || requestUrl.origin
 
   if (code) {
@@ -17,11 +18,11 @@ export async function GET(request: Request) {
       // Check if user has a profile
       const { data: profile } = await supabase
         .from('users_profiles')
-        .select('id')
+        .select('id,role,handle')
         .eq('id', session.user.id)
         .single()
 
-      if (!profile) {
+      if (!profile || !profile.handle || !['producer', 'artist'].includes(profile.role)) {
         // Try to create profile automatically from user metadata (email signup)
         const userMetadata = session.user.user_metadata
         if (userMetadata?.display_name && userMetadata?.handle && userMetadata?.role && userMetadata?.country) {
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
         }
         
         // No metadata or creation failed - redirect to complete profile
-        return NextResponse.redirect(`${origin}/complete-profile`)
+        return NextResponse.redirect(`${origin}/complete-profile?next=${encodeURIComponent(next)}`)
       }
 
       return NextResponse.redirect(`${origin}${next}`)

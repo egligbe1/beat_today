@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import SocialLogin from '@/components/auth/SocialLogin'
+import { requestedAuthReturn } from '@/lib/authReturn'
 import { showToast } from '@/lib/utils/toast'
 
 export default function LoginPage() {
@@ -14,12 +15,15 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
+  const [returnPath, setReturnPath] = useState('/')
+  useEffect(() => { setReturnPath(requestedAuthReturn(window.location.search)) }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
+    try {
     const { data, error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -33,7 +37,7 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      await fetch('/api/auth/session', {
+      const persisted = await fetch('/api/auth/session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,22 +47,23 @@ export default function LoginPage() {
           refresh_token: data.session.refresh_token,
         }),
       })
+      if (!persisted.ok) throw new Error('Your sign-in could not be completed. Please try again.')
     }
 
     // Fetch user role to redirect
     const { data: profile } = await supabase
       .from('users_profiles')
-      .select('role')
+      .select('role,handle')
       .eq('id', data.user.id)
       .single()
 
-    if (profile?.role === 'producer') {
-      router.push('/dashboard')
-    } else {
-      router.push('/')
-    }
+    const destination = requestedAuthReturn(window.location.search, profile?.role === 'producer' ? '/dashboard' : '/')
+    router.push(profile?.handle && ['producer','artist'].includes(profile.role) ? destination : '/complete-profile?next=' + encodeURIComponent(destination))
     showToast.success('Login successful!')
     router.refresh()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Sign-in could not be completed. Please try again.')
+    } finally { setLoading(false) }
   }
 
   return (
@@ -108,7 +113,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-text-muted">
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-accent-orange hover:underline">
+          <Link href={'/signup?redirect=' + encodeURIComponent(returnPath)} className="text-accent-orange hover:underline">
             Sign up
           </Link>
         </p>

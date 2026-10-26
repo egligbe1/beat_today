@@ -1,4 +1,5 @@
 'use client'
+import { requestedAuthReturn } from '@/lib/authReturn'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -60,7 +61,7 @@ export default function CompleteProfilePage() {
       
       // Only redirect if they have a role AND a proper handle (onboarding complete)
       if (profile?.role && profile?.handle && !profile.handle.includes('v_handle')) {
-        router.push('/')
+        router.push(requestedAuthReturn(window.location.search))
       }
 
       // Pre-fill form with signup data from user metadata
@@ -111,9 +112,9 @@ export default function CompleteProfilePage() {
         if (settingsError) throw settingsError
       }
 
-      router.push(role === 'producer' ? '/dashboard' : '/')
+      router.push(requestedAuthReturn(window.location.search, role === 'producer' ? '/dashboard' : '/'))
       // Force a hard refresh to ensure Navbar role state is re-fetched from DB
-      window.location.href = role === 'producer' ? '/dashboard' : '/'
+      window.location.href = requestedAuthReturn(window.location.search, role === 'producer' ? '/dashboard' : '/')
     } catch (err: any) {
       setError(err.message)
       setLoading(false)
