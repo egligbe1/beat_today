@@ -296,22 +296,18 @@ for a large commercial studio workload must not be promised without measurement.
 
 Build vertical workflows, with a single integrated product as the launch target:
 
-1. **Business and agreement backbone:** studio/team permissions, clients, service
-   proposals, immutable agreement versions and two-party confirmation. Demonstrate
-   a producer inviting an artist and reaching a confirmed scope.
-2. **Project collaboration:** milestones, private versioned files, playback,
+1. **Booking-first entry:** studio setup, rooms, session services, hours/buffers,
+   blocked time, public booking page, requests, reservation, and the producer calendar.
+2. **Agreement and project continuation:** retain the existing versioned agreement,
+   two-party confirmation, project milestones and conversation. Accepted requests
+   create their project automatically; agreement acceptance confirms the session.
+3. **Production collaboration:** private versioned submissions, playback,
    timestamped feedback, revision rounds, change orders and explicit approval.
-   Demonstrate one song progressing from first submission to approved version.
-3. **Calendar and business operations:** room/engineer scheduling, booking intake,
-   conflict protection, manual and recurring sessions, reminders and dashboard.
-   Demonstrate several sessions linked to an ongoing project.
 4. **Finance and delivery integration:** deposit/milestone/balance requests,
    provider-confirmed receipts, studio liabilities, refund/dispute handling,
-   final manifests and secure downloads. Demonstrate the complete lifecycle with
-   provider test mode before real collection.
-5. **Integrated pilot and release:** test the entire path with studio owners and
-   artists, including delays, disagreements, failed payments and subscription expiry.
-   Release the agreed workspace after these workflows work together.
+   final manifests and secure downloads. Test provider flows before real collection.
+5. **Integrated pilot and release:** validate the complete path with studio owners
+   and artists, including delays, disagreements, failed payments and PRO expiry.
 
 The user has directed a booking-first entry point. The existing agreement/project
 foundation is retained: service and availability selection → request → producer

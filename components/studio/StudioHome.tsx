@@ -71,7 +71,7 @@ export default function StudioHome({ workspace, projects, isPro, producer, unava
           <div className="md:col-span-2 flex justify-end"><button disabled={busy} className={studioButton}>{busy ? 'Opening…' : 'Create shared project'}<ArrowRight className="w-4 h-4" /></button></div>
         </form>
       </section>}
-      <div className="grid grid-cols-3 gap-3 md:gap-5">{[
+      {(!producer || !!workspace) && <><div className="grid grid-cols-3 gap-3 md:gap-5">{[
         { label: 'Projects', value: owned.length, icon: Layers3 },
         { label: 'Awaiting agreement', value: owned.filter(p => p.status === 'AWAITING_AGREEMENT').length, icon: FileText },
         { label: 'In production', value: owned.filter(p => p.status === 'IN_PRODUCTION').length, icon: Music2 },
@@ -79,7 +79,7 @@ export default function StudioHome({ workspace, projects, isPro, producer, unava
       <section><div className="flex flex-col sm:flex-row justify-between gap-4 mb-5"><h2 className="font-bold text-xl">{producer ? 'Studio projects' : 'Your projects'}</h2><label className="flex items-center gap-2 border border-white/10 rounded-xl px-3 py-2 text-zinc-500"><Search className="w-4 h-4" /><input aria-label="Find a project" value={search} onChange={e => setSearch(e.target.value)} placeholder="Find a project" className="bg-transparent outline-none text-xs text-white w-40" /></label></div>
         {visible.length ? <div className="grid lg:grid-cols-2 gap-4">{visible.map(p => <Link key={p.id} href={`/dashboard/projects/${p.id}`} className="group bg-[#111] border border-white/[.08] hover:border-orange-500/30 p-5 md:p-6 rounded-2xl transition-colors"><div className="flex justify-between items-start gap-4"><div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center"><Music2 className="w-5 h-5" /></div><Stage status={p.status} /></div><h3 className="text-lg font-bold mt-5 group-hover:text-orange-300 transition-colors">{p.title}</h3><p className="text-sm text-zinc-500 line-clamp-2 mt-2 leading-relaxed">{p.brief}</p><div className="mt-6 flex items-center justify-between"><span className="text-[10px] uppercase tracking-widest text-zinc-500">{p.service_type}</span><span className="text-xs text-zinc-400 flex items-center gap-2">Open workspace<ArrowUpRight className="w-4 h-4" /></span></div></Link>)}</div> : <div className="border border-dashed border-white/10 rounded-2xl p-10 text-center"><Clock3 className="w-8 h-8 text-zinc-600 mx-auto mb-4" /><h3 className="font-bold">{search ? 'No matching projects' : 'Your next collaboration starts here'}</h3><p className="text-sm text-zinc-500 mt-2 max-w-md mx-auto">{search ? 'Try another project name.' : producer ? 'Create a project to bring an artist, an agreement and your production milestones together.' : 'Projects appear here when a producer opens a shared workspace with you.'}</p></div>}
         {owned.length === 100 && <p className="text-xs text-zinc-500 mt-3">Showing the 100 most recently updated projects.</p>}
-      </section>
+      </section></>}
     </>}
   </div>
 }

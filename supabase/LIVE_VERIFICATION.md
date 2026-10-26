@@ -164,3 +164,23 @@ Source revision `3202cd2` is deployed successfully on Render. Isolated tests: 43
 passed; TypeScript and production build passed. Visual checks used fictional
 local fixtures, which were excluded from deployment. See STUDIO_BUILD_STATUS.md
 for the precise implemented scope and remaining collaboration features.
+
+
+## Booking-first migration and release — 2026-10-26
+
+User approved only the new booking migration through the explicit approval prompt.
+Applied `20261026171617_studio_bookings` via Supabase MCP. Six scheduling tables,
+private command/projection functions, invoker wrappers and the agreement-confirmation
+trigger were added. All original rows and fields in 72 application/auth/storage
+tables matched the private pre-change snapshot. No financial or media action occurred.
+
+New tables have RLS; anon has no raw booking SELECT or write-command execution;
+authenticated callers cannot directly insert bookings. Only catalog/free-slot
+projections are public. Security advisor adds six authenticated schema-discoverability
+notices, with no new definer/search-path or unprotected-table warning.
+
+Feature revision `613d6ac` deployed successfully. Live HTTP checks returned 401 for
+an unauthenticated booking write, 200 with empty slots for a nonexistent service,
+and 200 for the populated catalog homepage. The signed-in studio entry point loads
+without error. No production rooms, services, requests or agreements were seeded
+by the agent. See BOOKING_BUILD_STATUS.md for scope, tests and operational limits.
