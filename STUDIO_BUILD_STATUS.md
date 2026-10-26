@@ -1,9 +1,13 @@
 # Studio workspace implementation — 26 October 2026
 
+Current direction: the studio now starts with booking and availability. See
+[BOOKING_BUILD_STATUS.md](BOOKING_BUILD_STATUS.md) for the booking-first release.
+
 The first implementation connects PRO studio setup, shared artist/producer
 projects, two-party agreements, milestones and project conversations. It is the
 agreement/project foundation in STUDIO_MANAGEMENT_PLAN.md, not the whole studio
-business product. Deployment revision will be recorded after rollout verification.
+business product. Revision `3202cd2e4d0b68c354df457149283b46fd4075f5` is live
+on Render (deployment `dep-dbfo8brbc2fs7398r7d0`); its production build passed.
 
 ## Working features
 
@@ -57,7 +61,16 @@ notices, with scoped RLS still enforced; no new definer/search-path warning.
 ## Next implementation slices
 
 Versioned private project files, timestamped audio feedback, grouped revision
-rounds, version approval and final-delivery manifests come next. Studio calendar
-allocation, rooms/engineers, broader client/team management and studio-specific
-payments/receipts/refunds are not implemented in this foundation. New database
+rounds, version approval and final-delivery manifests come next. Room calendar allocation and booking intake are covered by the booking-first
+release. Engineer scheduling, broader client/team management and studio-specific
+payments/receipts/refunds remain separate implementation work. New database
 changes still require review and explicit authorization for the specific migration.
+
+
+Post-deployment smoke checks: the unauthenticated studio command returns HTTP
+401; the public homepage returns HTTP 200 with a populated catalog and no
+application-error page. No production test projects or agreements were created.
+
+The signed-in production producer page was also opened read-only and verified:
+Studio Workspace/My Projects navigation and the real studio-setup form render
+correctly. No setup form was submitted and no test customers were notified.

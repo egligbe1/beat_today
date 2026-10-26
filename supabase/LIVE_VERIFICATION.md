@@ -143,3 +143,24 @@ plan changed. Four UI trial schedules in the unused Google-login account were
 paused after production-account verification; none remain active in that account.
 Logs confirm HTTP 200 for watermark, delivery, clearance and a separately signed
 reconciliation-only check. Full payout initiation was not forced as a smoke test.
+
+
+## Studio foundation applied — 2026-10-26
+
+With explicit user permission to test/apply, Supabase MCP applied only
+`20261026164028_studio_workspace.sql`. It adds five scoped RLS tables and a
+request-authenticated command wrapper/private transactional implementation. All
+original rows and field values in 67 application/auth/storage tables matched the
+pre-change snapshot. No original data, wallet balance, order, license or media
+asset was modified. No financial operation was executed by the new migration.
+
+Live permission checks: five new tables have RLS; anon cannot read projects or
+execute the command; authenticated callers cannot directly insert projects. An
+authenticated role without a user identity sees no project/agreement records.
+The public wrapper is SECURITY INVOKER. Security advisor adds only authenticated
+schema-discoverability notices for the five new tables; RLS remains enforced.
+
+Source revision `3202cd2` is deployed successfully on Render. Isolated tests: 43
+passed; TypeScript and production build passed. Visual checks used fictional
+local fixtures, which were excluded from deployment. See STUDIO_BUILD_STATUS.md
+for the precise implemented scope and remaining collaboration features.

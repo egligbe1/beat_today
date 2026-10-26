@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { bookingCatalog } from '@/lib/studio/bookingData'
 import { safeExternalUrl } from '@/lib/security'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
@@ -90,7 +92,7 @@ export default async function UserProfilePage(props: { params: Promise<{ handle:
     }
 
     // beats and services are independent — fetch them together.
-    const [beatsRes, servicesRes] = await Promise.all([
+    const [beatsRes, servicesRes, studioCatalog] = await Promise.all([
       supabase
         .from('beats')
         .select('id,producer_id,title,genre,mood_tags,bpm,key,cover_url,mp3_preview_url,watermarked_preview_url,price_mp3,price_wav,price_trackout,price_exclusive,play_count,is_exclusive_sold,status,is_free,product_type,watermark_status,likes_count,comments_count,created_at,updated_at, users_profiles!beats_producer_id_fkey!inner(handle, display_name)')
@@ -102,6 +104,7 @@ export default async function UserProfilePage(props: { params: Promise<{ handle:
         .select('*')
         .eq('producer_id', profile.id)
         .eq('is_active', true),
+      bookingCatalog(cleanHandle),
     ])
     const beats = beatsRes.data
     const services = servicesRes.data
@@ -128,7 +131,7 @@ export default async function UserProfilePage(props: { params: Promise<{ handle:
     const producerRating = totalReviews > 0 ? avgRating.toFixed(1) : "5.0"
 
     return renderProducerProfile({
-      profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services
+      profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services, studioCatalog
     })
   } else {
     // ---- ARTIST VIEW LOGIC ----
@@ -152,7 +155,7 @@ export default async function UserProfilePage(props: { params: Promise<{ handle:
   }
 }
 
-function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services }: any) {
+function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlays, producerRating, totalReviews, followersCount, isFollowing, services, studioCatalog }: any) {
   return (
     <div className="min-h-screen bg-bg-primary">
       {/* Premium Header/Banner */}
@@ -225,6 +228,7 @@ function renderProducerProfile({ profile, settings, beats, beatsCount, totalPlay
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto pt-6 md:pt-0">
+                {studioCatalog?.is_public && studioCatalog.services.length > 0 && <Link href={`/studio/${profile.handle}`} className="h-14 px-8 inline-flex items-center justify-center bg-[#FF5500] text-white font-bold rounded-2xl w-full sm:w-auto">Book studio</Link>}
                 <FollowButton followingId={profile.id} initialIsFollowing={isFollowing} className="h-14 px-10 text-sm font-black uppercase tracking-widest rounded-2xl w-full sm:w-auto" />
                 <ContactButton producerId={profile.id} className="h-14 px-8 text-sm font-black uppercase tracking-widest rounded-2xl w-full sm:w-auto border-2 border-white/10 bg-white/5 backdrop-blur-xl hover:bg-white/10" />
             </div>

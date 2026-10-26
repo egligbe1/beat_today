@@ -81,3 +81,20 @@ export interface StudioEvent {
 export interface StudioMilestone {
   id: string; project_id: string; title: string; due_date: string | null; completed_at: string | null
 }
+
+export interface StudioRoom { id: string; studio_id: string; name: string }
+export interface StudioSessionService { id: string; room_id: string; title: string; description: string; duration_minutes: number; buffer_minutes: number; price_minor: number; service_type: string; is_active: boolean }
+export interface StudioOpeningHours { room_id: string; weekday: number; opens: string; closes: string; closed: boolean }
+export interface StudioTimeBlock { id: string; room_id: string; starts_at: string; ends_at: string; reason: string; is_active: boolean }
+export interface StudioBooking {
+ id: string; studio_id: string; room_id: string; service_id: string; producer_id: string; artist_id: string; project_id: string | null
+ starts_at: string; ends_at: string; buffer_minutes: number; reserved_until: string | null; notes: string; outcome_reason: string | null
+ artist?: { handle: string; display_name: string | null }
+ status: 'REQUESTED' | 'RESERVED' | 'CONFIRMED' | 'DECLINED' | 'CANCELLED' | 'COMPLETED'
+ service_snapshot: { title: string; description: string; price_minor: number; currency: 'GHS'; duration_minutes: number; buffer_minutes: number; room_name: string; studio_name: string; timezone: string }
+}
+export interface StudioBookingCatalog {
+ id: string; name: string; city: string; timezone: string; handle: string; owner_id: string; producer_name: string
+ today: string; horizon_days: number; notice_hours: number; is_public: boolean
+ services: { id: string; title: string; description: string; duration_minutes: number; buffer_minutes: number; price_minor: number; room_name: string }[]
+}

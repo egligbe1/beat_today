@@ -101,3 +101,20 @@ the migration creator; other function-owner defaults require separate review.
 - PRO expiry stops new projects/initial agreements but preserves existing work and
   accepted-agreement amendments. No studio operation credits/debits existing wallets.
 - Visual fixtures stay in ignored scratch files; never publish sample projects as real customer records.
+
+
+## Studio bookings
+
+- Studio dashboard is booking-first. Artist requests do not hold calendar time.
+  Producer reservation creates/links a project and holds a room for at most 24 hours
+  or until session start. Agreement acceptance confirms only a live reservation.
+- New scheduling tables/functions use `studio_booking_*` and are distinct from
+  the historical `service_bookings` delivery table. Never repurpose old records.
+- Room mutations lock the room before booking rows. Do not acquire a project row
+  lock after a booking/room lock: the agreement command already holds project first.
+- Services, prices, duration, buffers, room and timezone are snapshotted on request.
+  Quotes do not create payment receipts, ledger credits or payout eligibility.
+- Public catalog/slots expose safe projections only; raw scheduling records and
+  blocked-time notes stay private. Direct browser table writes remain revoked.
+- Booking and project cancellation/history are separate. Never delete historical
+  agreements, bookings or assets as scheduling cleanup.

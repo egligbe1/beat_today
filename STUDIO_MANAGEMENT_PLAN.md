@@ -1,6 +1,6 @@
 # BeatToday Studio Business Workspace — PRO product specification
 
-Planning draft · 26 October 2026 · Supersedes the booking-first proposal.
+Implementation direction · 26 October 2026 · Booking-first entry point.
 This document specifies the product; it does not apply database changes or implement features.
 
 ## Product definition
@@ -313,8 +313,11 @@ Build vertical workflows, with a single integrated product as the launch target:
    artists, including delays, disagreements, failed payments and subscription expiry.
    Release the agreed workspace after these workflows work together.
 
-Initial implementation should start with agreements and projects because these
-are the central product promise; calendar-only work would not prove that promise.
+The user has directed a booking-first entry point. The existing agreement/project
+foundation is retained: service and availability selection → request → producer
+reservation → agreement acceptance → confirmed session and ongoing project.
+The studio dashboard prioritises the calendar and requests; projects follow each
+accepted booking rather than being the required first action.
 
 ## Definition of done
 

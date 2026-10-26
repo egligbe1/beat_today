@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Music, Upload, Wallet, Settings, MessageCircle, Search, Building2, Layers3 } from 'lucide-react'
+import { LayoutDashboard, Music, Upload, Wallet, Settings, MessageCircle, Search, Building2, Layers3, CalendarDays } from 'lucide-react'
 
 const PRODUCER_NAV = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -16,7 +16,7 @@ const PRODUCER_NAV = [
 const ARTIST_NAV = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
   { href: '/library', label: 'Library', icon: Music },
-  { href: '/search', label: 'Search', icon: Search },
+  { href: '/dashboard/bookings', label: 'Bookings', icon: CalendarDays },
   { href: '/dashboard/projects', label: 'Projects', icon: Layers3 },
   { href: '/messages', label: 'Messages', icon: MessageCircle },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },

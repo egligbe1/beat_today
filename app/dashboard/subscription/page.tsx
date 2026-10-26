@@ -50,7 +50,7 @@ const TIERS = [
     badge: { text: 'Best Value', color: 'bg-accent-orange text-white' },
     features: [
       'Unlimited beat uploads',
-      'Studio projects & shared agreements',
+      'Studio bookings, projects & shared agreements',
       'MP3 + WAV + Stems (trackouts)',
       '0% platform fee — keep 100%',
       'Featured in homepage producer showcase',
