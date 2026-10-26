@@ -77,10 +77,27 @@ drop existing data. Follow `AGENTS.md` and review each proposed migration agains
 the deployed schema; applying SQL requires explicit authorization.
 
 `039_restrict_financial_access.sql` protections were verified active on
-2026-10-26 via read-only catalog inspection; the agent did not apply SQL and the
-Supabase migration-history listing is empty. See `supabase/LIVE_VERIFICATION.md`.
+2026-10-26 via catalog inspection before the authorized marketplace rollout.
+Migration history now includes `20261026154145_marketplace_integrity` and
+`20261026164028_studio_workspace`, applied with explicit user authorization. See `supabase/LIVE_VERIFICATION.md`.
 Do not replay historical migrations to fill that history. The migration restricts
 internal money RPCs to service role, validates balance operations, and limits
 browser settings writes to user_id/bank_details/updated_at. Billing fields must
 only be written by privileged server code. Permission defaults in 039 apply to
 the migration creator; other function-owner defaults require separate review.
+
+
+## Studio workspace
+
+- Studio workflow records are separate from beat orders, licenses, wallets and
+  ledger transactions. Agreement amounts describe scope; they are not receipts.
+- Writes use request-scoped `studio_command`; the database derives identity from
+  `auth.uid()`. Never substitute a service-role client or a caller-supplied actor.
+- Accepted agreement versions and their terms/hash are immutable. A new proposal
+  does not replace the active agreement until the artist accepts that exact version.
+- Publishing records the producer's explicit confirmation. Only the linked artist
+  can provide artist acceptance; repeated current-version acceptance is idempotent.
+- Milestones freeze at first publication and are included in the agreement snapshot.
+- PRO expiry stops new projects/initial agreements but preserves existing work and
+  accepted-agreement amendments. No studio operation credits/debits existing wallets.
+- Visual fixtures stay in ignored scratch files; never publish sample projects as real customer records.

@@ -38,6 +38,7 @@ next-env.d.ts
 
 # Project specific exclusions
 /scratch/
+/.local-backups/
 /*.pdf
 .claude/
 .gemini/

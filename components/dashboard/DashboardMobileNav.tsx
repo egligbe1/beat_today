@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Music, Upload, Wallet, Settings, MessageCircle, Search } from 'lucide-react'
+import { LayoutDashboard, Music, Upload, Wallet, Settings, MessageCircle, Search, Building2, Layers3 } from 'lucide-react'
 
 const PRODUCER_NAV = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/beats', label: 'Beats', icon: Music },
   { href: '/dashboard/upload', label: 'Upload', icon: Upload },
+  { href: '/dashboard/studio', label: 'Studio', icon: Building2 },
   { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
@@ -16,6 +17,7 @@ const ARTIST_NAV = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
   { href: '/library', label: 'Library', icon: Music },
   { href: '/search', label: 'Search', icon: Search },
+  { href: '/dashboard/projects', label: 'Projects', icon: Layers3 },
   { href: '/messages', label: 'Messages', icon: MessageCircle },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]

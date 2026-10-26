@@ -4,7 +4,9 @@ The marketplace-integrity migration was applied with explicit user authorization
 on 2026-10-26 (Supabase version `20261026154145`). Every original row and field
 value across all 26 existing public tables was compared before/after and is
 unchanged. A private local data snapshot is retained outside Git. Application
-rollout is in progress; the deployed revision will be recorded after verification.
+revision `1d4a6d1eebfc93cb9f8ef042ac791b276fe8be0c` is live on Render; deployment
+`dep-dbfna8p5efls73c8htr0` succeeded. A public HTTP check returned the new
+application chunks and a populated catalog without an application error.
 No payment, transfer, mail, storage deletion, plan purchase or Postgres upgrade
 was executed.
 
@@ -49,21 +51,35 @@ Five internal service-only tables intentionally have RLS with no browser policy.
 GraphQL discoverability notices remain subject to RLS; two provider warnings
 (leaked-password protection and Postgres patches) remain as described below.
 
-## Provider controls still pending
+## Provider controls and background jobs
 
-- **Leaked-password protection:** the signed-in dashboard confirms this is
-  available only on Supabase Pro and above; BeatToday is on Free. No plan was
-  purchased and no unrelated authentication settings were changed.
-- **Postgres update:** dashboard offers **17.11.0.003** from **17.4.1.075**. Its
-  confirmation warns of up to **one hour offline**, no downgrade to the old
-  version, and disk right-sizing. The dialog was cancelled. This needs its own
-  approved maintenance/backup plan; it is not bundled into the schema migration.
-- **Background schedules:** `npm run jobs:plan` prints the exact proposed QStash
-  destinations/cadences. The script creates nothing unless explicitly run with
-  `--apply` and a QStash token. Existing schedules are retained. Enable the jobs
-  after coordinated deployment and verify signatures against the configured
-  public site URL. Payout initiation uses bounded batches on the 1st/15th UTC;
-  reconciliation is hourly.
+- **Postgres upgraded:** explicit user authorization received and upgrade completed
+  to **17.11.0.003**. Supabase reports ACTIVE_HEALTHY; SQL reports PostgreSQL 17.11.
+  The vulnerable-version security advisory is cleared.
+- **Data verification:** before upgrade, a private snapshot captured 68 public,
+  auth, storage and migration-history tables (269 rows), plus schema definitions.
+  All original records match afterward except the expected earnings clearance:
+  two mature SALE ledger records changed PENDING → AVAILABLE and GHS 6,293.18
+  moved from pending to available in the wallet. Total money is unchanged.
+  No payout was initiated by the verification. Snapshots are private local files,
+  excluded from Git; they are not a full physical database backup or asset copy.
+- **Background jobs active:** five schedules created with the credentials already
+  configured in Render, in QStash EU. They use POST, a 300-second timeout, and
+  three retries. Existing schedules for BeatToday and other projects were retained.
+  The unused Google-login account's four trial schedules were paused (zero active)
+  after identifying the production account via Render's existing credentials.
+- **Cadences (UTC / Ghana time):** watermark and license delivery every five
+  minutes; earnings clearance hourly at :00; payout-status reconciliation hourly
+  at :15; payout initiation every 15 minutes on the 1st and 15th only. Existing
+  10-minute health checks are unchanged. The schedules remain within the observed
+  shared Free quota, but retries and other projects also consume that allowance.
+- **Execution verification:** QStash logs show HTTP 200 for watermark, license
+  delivery and clearance. A signed reconciliation-only check returned HTTP 200
+  with no processing payout attempts. No real transfer was forced as a test;
+  payout initiation awaits its regular calendar schedule.
+- **Leaked-password protection:** remains disabled because it requires Pro and
+  the user explicitly chose to retain Free. It is useful additional protection,
+  not a prerequisite to run the app. No paid plan was purchased.
 
 ## Verification and practical limits
 
@@ -76,8 +92,8 @@ GraphQL discoverability notices remain subject to RLS; two provider warnings
   GHS display and multi-page full-agreement PDF generation.
 - The production build is checked with Supabase pointed at an unused loopback
   port and dummy credentials. It cannot access the user's database.
-- Dependency audit is checked separately. See the final task response for final
-  check results after the last source changes.
+- Dependency audit is checked separately. The final isolated test run passed all 33 tests. Render also
+  reported zero dependency vulnerabilities and a successful production build.
 - No live payment, transfer, mail or FFmpeg/media smoke test has been performed.
   Such tests require an isolated provider test setup after deployment. PGlite
   tests validate SQL behavior but are not a multi-connection concurrency test.

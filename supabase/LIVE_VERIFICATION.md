@@ -96,3 +96,50 @@ owner-permission views or mutable function search paths. Remaining advisories:
 intentional GraphQL schema discoverability, five RLS-protected internal tables
 without browser policies (INFO), leaked-password protection disabled (Free plan),
 and available Postgres patches. Provider controls remain separately pending.
+
+
+Matching application revision `1d4a6d1eebfc93cb9f8ef042ac791b276fe8be0c` was
+pushed to the existing `dev` deployment branch. Render deployment
+`dep-dbfna8p5efls73c8htr0` succeeded and reports Live, running Next.js 15.5.28
+on Node 22.23.4. A public HTTP check confirmed a populated homepage, new build
+chunks, and no application-error page. Health endpoint returned HTTP 200.
+Final isolated test run: 33 passed, 0 failed. Render dependency audit: zero
+vulnerabilities. No transaction/transfer/email/media smoke test was performed.
+
+A read-only transaction under `anon` returned one catalog and discovery row;
+master MP3/WAV column reads and order reads were denied. Authenticated direct
+order insertion was also denied. Background schedules remain separately pending;
+no provider plan or Postgres engine change was performed.
+
+
+## Approved operations completed — 2026-10-26
+
+User explicitly requested background-job activation and Postgres upgrade while
+retaining Free. Supabase upgrade tracking ID:
+`6e6e1d51-5c90-45df-b964-30c19dbdd274`. Project now ACTIVE_HEALTHY on
+`17.11.0.003`; SQL confirms PostgreSQL 17.11. Security advisor no longer reports
+a vulnerable Postgres version. Password-breach checking remains a paid-plan item.
+
+A pre-upgrade snapshot captured 68 application/auth/storage/migration tables,
+269 rows, and schema metadata/definitions, locally with mode 600. Original-row
+comparison found only expected job activity: two mature SALE ledger rows became
+AVAILABLE and the wallet moved GHS 6,293.18 pending → available. Total unchanged;
+all other original tables and fields matched. This is a local logical snapshot,
+not a complete pg_dump/physical backup or copy of stored media.
+
+Production QStash schedules created and verified active:
+
+| Destination | UTC cadence | Schedule ID |
+| --- | --- | --- |
+| `/api/cron/watermark` | `*/5 * * * *` | `scd_81LvNq8nh4zph2F6EZzLpvyn7ryw` |
+| `/api/cron/deliver-licenses` | `*/5 * * * *` | `scd_6ZdT3vXwna3oHJMrd6QjXrZknmky` |
+| `/api/cron/clear-funds` | `0 * * * *` | `scd_5Nt1bvgn8J9vVzjmbmTMiZaAxeWB` |
+| `/api/cron/payouts?reconcile_only=1` | `15 * * * *` | `scd_66YQ7rmU9ny5YgvKbNdYMjtGiCt4` |
+| `/api/cron/payouts` | `*/15 * 1,15 * *` | `scd_7Sxi4rvDCtsVMPMMNhKs8Q2cYEot` |
+
+POST, timeout 300 seconds, retries 3, label `beattoday-background`. Existing four
+schedules retained, including health checks and unrelated projects. No account
+plan changed. Four UI trial schedules in the unused Google-login account were
+paused after production-account verification; none remain active in that account.
+Logs confirm HTTP 200 for watermark, delivery, clearance and a separately signed
+reconciliation-only check. Full payout initiation was not forced as a smoke test.

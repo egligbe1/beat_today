@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LayoutDashboard, Upload, DollarSign, Settings, FileText, Music, Wallet, Tag, FolderOpen, Crown, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, Upload, DollarSign, Settings, FileText, Music, Wallet, Tag, FolderOpen, Crown, MessageCircle, Building2, Layers3 } from 'lucide-react'
 import DashboardMobileNav from '@/components/dashboard/DashboardMobileNav'
 
 const PRODUCER_NAV = [
@@ -9,6 +9,8 @@ const PRODUCER_NAV = [
       { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
       { href: '/dashboard/beats', label: 'My Beats', icon: Music },
       { href: '/dashboard/upload', label: 'Upload Beat', icon: Upload },
+      { href: '/dashboard/studio', label: 'Studio Workspace', icon: Building2 },
+      { href: '/dashboard/projects', label: 'My Projects', icon: Layers3 },
       { href: '/dashboard/collections', label: 'Albums', icon: FolderOpen },
     ]
   },
@@ -38,6 +40,7 @@ const ARTIST_NAV = [
     links: [
       { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
       { href: '/library', label: 'My Purchases', icon: FolderOpen },
+      { href: '/dashboard/projects', label: 'My Projects', icon: Layers3 },
       { href: '/dashboard/favorites', label: 'Favorites', icon: Music },
     ]
   },

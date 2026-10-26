@@ -50,3 +50,34 @@ export interface Beat {
   created_at?: string | null
   users_profiles?: ProfileSummary | null
 }
+
+export type StudioProjectStatus = 'AWAITING_AGREEMENT' | 'AGREED' | 'IN_PRODUCTION' | 'ON_HOLD'
+export interface StudioWorkspace {
+  id: string; owner_id: string; name: string; city: string; timezone: string
+}
+export interface StudioProject {
+  id: string; studio_id: string; producer_id: string; artist_id: string
+  title: string; service_type: string; brief: string; status: StudioProjectStatus
+  active_agreement_id: string | null; created_at: string; updated_at: string
+}
+export interface StudioAgreementTerms {
+  scope: string; deliverables: string; timeline: string; payment_terms: string
+  rights: string; cancellation: string; total_minor: number; deposit_minor: number
+  currency: 'GHS'; revision_rounds: number; project_title: string
+  producer_id: string; artist_id: string; producer_name: string; artist_name: string; studio_name: string
+  milestones: { title: string; due_date: string | null }[]
+}
+export interface StudioAgreement {
+  id: string; project_id: string; version: number
+  status: 'SENT' | 'ACCEPTED' | 'CHANGES_REQUESTED' | 'SUPERSEDED'
+  terms: StudioAgreementTerms; content_hash: string
+  producer_accepted_at: string; artist_accepted_at: string | null
+  changes_requested: string | null; created_at: string
+}
+export interface StudioEvent {
+  id: string; project_id: string; actor_id: string; kind: string; body: string
+  agreement_id: string | null; created_at: string
+}
+export interface StudioMilestone {
+  id: string; project_id: string; title: string; due_date: string | null; completed_at: string | null
+}

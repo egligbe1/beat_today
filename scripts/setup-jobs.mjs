@@ -9,7 +9,7 @@ const plan = [
   { destination: `${site}/api/cron/clear-funds`, cron: '0 * * * *', method: 'POST' },
   { destination: `${site}/api/cron/payouts`, cron: '*/15 * 1,15 * *', method: 'POST' },
   { destination: `${site}/api/cron/payouts?reconcile_only=1`, cron: '15 * * * *', method: 'POST' },
-]
+].map(schedule => ({ ...schedule, timeout: 300, retries: 3, label: 'beattoday-background' }))
 if (!process.argv.includes('--apply')) console.log(JSON.stringify(plan, null, 2))
 else {
   if (!process.env.QSTASH_TOKEN) throw new Error('Set QSTASH_TOKEN without putting it in source control')
