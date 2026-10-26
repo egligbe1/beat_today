@@ -1,4 +1,3 @@
-import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Image from 'next/image'
@@ -31,15 +30,8 @@ export default async function ConversationPage(props: { params: Promise<{ id: st
     .from('messages')
     .select('*')
     .eq('conversation_id', params.id)
-    .order('created_at', { ascending: false }).limit(100)
+    .order('created_at', { ascending: false }).order('id', {ascending:false}).limit(100)
 
-  // Mark messages as read
-  await createAdminClient()
-    .from('messages')
-    .update({ is_read: true })
-    .eq('conversation_id', params.id)
-    .neq('sender_id', user.id)
-    .eq('is_read', false)
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
@@ -65,6 +57,7 @@ export default async function ConversationPage(props: { params: Promise<{ id: st
 
       {/* Thread */}
       <MessageThread
+        key={params.id}
         conversationId={params.id}
         currentUserId={user.id}
         initialMessages={[...(messages || [])].reverse()}

@@ -1,3 +1,4 @@
+import CustomServiceRequest from './CustomServiceRequest'
 import Link from 'next/link'
 import ContactButton from '@/components/profile/ContactButton'
 import type { StudioBookingCatalog } from '@/lib/types'
@@ -22,5 +23,6 @@ export default function StudioBookingEntry({ profile, catalog, owner = false }: 
     ? <Link href={`/studio/${encodeURIComponent(profile.handle)}`} className={button}>Book studio — choose service &amp; time</Link>
     : <ContactButton initialMessage="Hi! I’d like to ask about booking a studio session." producerId={profile.id} className="justify-center w-full sm:w-auto" />}</div>
   {owner && <p className="text-xs text-zinc-500 mt-4">Configure rooms, services and opening hours in your studio dashboard. Public booking requires active PRO and your explicit publication.</p>}
+  {!owner&&<CustomServiceRequest producerId={profile.id}/>}
  </section>
 }

@@ -1,3 +1,4 @@
+import InboxLiveUpdates from '@/components/notifications/InboxLiveUpdates'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -24,6 +25,7 @@ export default async function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-bg-primary">
+      <InboxLiveUpdates userId={user.id}/>
       <div className="max-w-3xl mx-auto px-4 py-12 space-y-6">
         <div className="flex items-center justify-between">
           <div>

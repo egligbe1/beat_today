@@ -9,13 +9,13 @@ import type { StudioBooking } from '@/lib/types'
 import { BOOKING_LABELS, bookingAction, bookingDate, reservationExpired } from '@/lib/studio/booking'
 import { studioMoney } from '@/lib/studio/domain'
 import { studioButton, studioInput } from './StudioHome'
-export default function BookingList({ bookings, producer = false, autoRefresh = false }: { bookings: StudioBooking[]; producer?: boolean; autoRefresh?: boolean }) {
+export default function BookingList({ bookings, producer = false, autoRefresh = false, liveUserId }: { bookings: StudioBooking[]; producer?: boolean; autoRefresh?: boolean; liveUserId?: string }) {
  const router = useRouter()
  const now = useBookingClock()
  const [busy, setBusy] = useState<string | null>(null)
  const [error, setError] = useState('')
  const [reasonFor, setReasonFor] = useState<{id:string;action:string}|null>(null)
- useStudioRefresh(autoRefresh && !busy && !reasonFor)
+ useStudioRefresh(autoRefresh && !busy && !reasonFor,liveUserId?[{table:'studio_bookings',filter:`artist_id=eq.${liveUserId}`}]:[])
  async function run(b: StudioBooking, action: string, reason = '') {
   setBusy(b.id); setError('')
   try { const result=await bookingAction(action,{booking_id:b.id,reason});setReasonFor(null);if(action==='reserve'&&result.project_id)router.push(`/dashboard/projects/${result.project_id}`);else router.refresh() }

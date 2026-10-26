@@ -1,4 +1,5 @@
 'use client'
+import DateInput from '@/components/ui/DateInput'
 import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -35,7 +36,7 @@ export default function ProjectWorkspace({ project, workspace, agreements, event
   const confirmed = !!selected && confirmedAgreement === selected.id
   const [changes, setChanges] = useState(false)
   const [message, setMessage] = useState('')
-  useStudioRefresh(!editing && !busy && !changes)
+  useStudioRefresh(!editing && !busy && !changes,[{table:'studio_project_events',filter:`project_id=eq.${project.id}`},{table:'studio_projects',filter:`id=eq.${project.id}`},{table:'studio_agreements',filter:`project_id=eq.${project.id}`},{table:'studio_bookings',filter:`project_id=eq.${project.id}`},{table:'studio_project_milestones',filter:`project_id=eq.${project.id}`}])
   async function run(action: string, payload: Record<string, unknown>) {
     setBusy(true); setError(''); setSuccess('')
     try {
@@ -93,7 +94,7 @@ export default function ProjectWorkspace({ project, workspace, agreements, event
             <div className="flex justify-between gap-3 items-center"><h2 className="font-bold">Production milestones</h2><span className="text-xs text-zinc-500">{milestones.filter(m => m.completed_at).length}/{milestones.length} complete</span></div>
             <p className="text-xs text-zinc-500 mt-2">{agreements.length ? 'The milestone plan is preserved with your published agreement.' : 'Add the agreed steps and dates before publishing your first agreement.'}</p>
             <div className="mt-5 space-y-4">{milestones.map(m => <div key={m.id} className="flex items-start gap-3 border-b border-white/5 pb-4 last:border-0"><button disabled={busy || !producer || !active || !!m.completed_at} aria-label={`Complete ${m.title}`} onClick={() => run('complete_milestone', { milestone_id: m.id })} className={`mt-0.5 ${m.completed_at ? 'text-emerald-400' : 'text-zinc-600 enabled:hover:text-orange-400'}`}>{m.completed_at ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}</button><div><p className={`text-sm ${m.completed_at ? 'text-zinc-500' : 'text-zinc-200'}`}>{m.title}</p><p className="text-[11px] text-zinc-500 mt-1">{m.completed_at ? `Completed ${dateTime(m.completed_at)}` : m.due_date ? `Due ${m.due_date}` : 'No date set'}</p></div></div>)}{!milestones.length && <p className="text-sm text-zinc-600 py-3">No milestones added yet.</p>}</div>
-            {producer && isPro && !agreements.length && <form className="mt-4 grid sm:grid-cols-[1fr_auto_auto] gap-2" onSubmit={async e => { e.preventDefault(); const form = e.currentTarget; if (await run('add_milestone', Object.fromEntries(new FormData(form)))) form.reset() }}><input name="title" aria-label="Milestone title" required minLength={2} maxLength={160} placeholder="First mix, recording session…" className={studioInput} /><input name="due_date" aria-label="Milestone date" type="date" className={studioInput} /><button disabled={busy || milestones.length >= 30} className={studioButton} aria-label="Add milestone"><Plus className="w-4 h-4" /></button></form>}
+            {producer && isPro && !agreements.length && <form className="mt-4 grid sm:grid-cols-[1fr_auto_auto] gap-2" onSubmit={async e => { e.preventDefault(); const form = e.currentTarget; if (await run('add_milestone', Object.fromEntries(new FormData(form)))) form.reset() }}><input name="title" aria-label="Milestone title" required minLength={2} maxLength={160} placeholder="First mix, recording session…" className={studioInput} /><DateInput name="due_date" aria-label="Milestone date" className={studioInput} /><button disabled={busy || milestones.length >= 30} className={studioButton} aria-label="Add milestone"><Plus className="w-4 h-4" /></button></form>}
           </section>
           <section className="p-6 rounded-2xl border border-white/[.08] bg-[#111]"><h2 className="font-bold mb-5">Project activity</h2><div className="space-y-5">{events.filter(e => e.kind !== 'MESSAGE').slice(0, 8).map(e => <div className="flex gap-3" key={e.id}><div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" /><div><p className="text-sm text-zinc-300 break-words whitespace-pre-wrap">{e.body}</p><p className="text-[10px] text-zinc-600 mt-1.5">{dateTime(e.created_at)}</p></div></div>)}</div></section>
         </>}

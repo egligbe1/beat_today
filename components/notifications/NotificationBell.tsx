@@ -1,5 +1,6 @@
 'use client'
 
+import { useLiveRefresh } from '@/lib/hooks/useLiveRefresh'
 import { useEffect, useState, useRef } from 'react'
 import { Bell, X, CheckCheck, ShoppingBag, UserPlus, Star, DollarSign, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
@@ -41,39 +42,29 @@ export default function NotificationBell() {
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
-  }, [supabase])
+    let active=true
+    supabase.auth.getUser().then(({data})=>{if(active)setUser(data.user)})
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{if(active)setUser(session?.user||null)})
+    return()=>{active=false;subscription.unsubscribe()}
+  },[supabase])
 
-  useEffect(() => {
-    if (!user) return
-
-    async function fetchNotifications() {
-      const res = await fetch('/api/notifications')
-      const data = await res.json()
-      if (res.ok) {
-        setNotifications(data.notifications || [])
-        setUnreadCount(data.unread_count || 0)
-      }
-      setLoading(false)
-    }
-
-    fetchNotifications()
-
-    // Realtime subscription
-    const channel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          setNotifications(prev => [payload.new as Notification, ...prev])
-          setUnreadCount(prev => prev + 1)
-        }
-      )
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [user, supabase])
+  const requestNumber = useRef(0)
+  useEffect(()=>{++requestNumber.current;setNotifications([]);setUnreadCount(0);setLoading(true)},[user?.id])
+  async function fetchNotifications() {
+    const number=++requestNumber.current
+    try {
+      const res=await fetch('/api/notifications',{cache:'no-store'})
+      const data=await res.json()
+      if(res.ok&&number===requestNumber.current){setNotifications(data.notifications||[]);setUnreadCount(data.unread_count||0)}
+    } finally {if(number===requestNumber.current)setLoading(false)}
+  }
+  useLiveRefresh(fetchNotifications,user?[{table:'notifications',filter:`user_id=eq.${user.id}`}]:[],!!user,10000)
+  useEffect(()=>{
+    const refresh=()=>{if(user)void fetchNotifications().catch(()=>{})}
+    window.addEventListener('beattoday:notifications-refresh',refresh)
+    return()=>window.removeEventListener('beattoday:notifications-refresh',refresh)
+  },[user])
+  useEffect(()=>{if(open&&user)void fetchNotifications().catch(()=>{})},[open,user])
 
   // Close panel on outside click
   useEffect(() => {
@@ -87,15 +78,12 @@ export default function NotificationBell() {
   }, [open])
 
   const markAllRead = async () => {
-    await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mark_all: true }) })
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
-    setUnreadCount(0)
+    const response=await fetch('/api/notifications',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({mark_all:true})}).catch(()=>null)
+    if(response?.ok){++requestNumber.current;setNotifications(prev=>prev.map(n=>({...n,is_read:true})));setUnreadCount(0);void fetchNotifications().catch(()=>{})}
   }
-
-  const markRead = async (id: string) => {
-    await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [id] }) })
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
-    setUnreadCount(prev => Math.max(0, prev - 1))
+  const markRead = async (id:string) => {
+    const response=await fetch('/api/notifications',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[id]})}).catch(()=>null)
+    if(response?.ok){++requestNumber.current;setNotifications(prev=>prev.map(n=>n.id===id?{...n,is_read:true}:n));void fetchNotifications().catch(()=>{})}
   }
 
   if (!user) return null
@@ -103,6 +91,7 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={panelRef}>
       <button
+        aria-label="Notifications"
         onClick={() => setOpen(o => !o)}
         className="relative p-2.5 rounded-full hover:bg-white/5 text-text-muted hover:text-white transition-all group"
       >

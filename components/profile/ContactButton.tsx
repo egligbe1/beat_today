@@ -15,7 +15,7 @@ export default function ContactButton({ producerId, className, initialMessage = 
 
   const handleContact = async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    if (!user) { router.push('/login?redirect='+encodeURIComponent(window.location.pathname+window.location.search)); return }
     if (user.id === producerId) return
 
     setLoading(true)

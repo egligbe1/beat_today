@@ -98,3 +98,8 @@ export interface StudioBookingCatalog {
  today: string; horizon_days: number; notice_hours: number; is_public: boolean
  services: { id: string; title: string; description: string; duration_minutes: number; buffer_minutes: number; price_minor: number; room_name: string }[]
 }
+
+export interface ChatMessage {
+ id:string; conversation_id:string; sender_id:string; content:string
+ created_at:string; is_read:boolean
+}

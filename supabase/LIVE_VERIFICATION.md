@@ -189,3 +189,12 @@ Booking-first onboarding follow-up `d7aae631f03944fea857a6596e024d454cdc061e`
 also deployed successfully. New studios are guided through booking setup rather
 than an empty project list. No additional SQL or production-data operation was
 needed for that presentation change.
+
+## Realtime messaging and studio — 2026-10-26
+
+The user explicitly approved only `20261026210512_realtime_messaging_and_studio.sql`.
+Applied after read-policy/RLS review. Eight existing chat/notification/studio tables
+are now in `supabase_realtime`, with RLS intact. Direct browser chat writes are
+revoked; the checked server API retains write access. Existing-row fingerprints
+and counts matched before/after. No customer content was generated as a test.
+Security-advisor findings are unchanged. See CHAT_AND_BOOKING_UX.md.
