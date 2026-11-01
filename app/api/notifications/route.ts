@@ -1,3 +1,4 @@
+import { readJsonObject, safeRequestError } from '@/lib/http'
 import { UUID_RE } from '@/lib/security'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
   if (unreadOnly) query = query.eq('is_read', false)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Notifications could not be loaded' }, { status: 500 })
 
   let unread=supabaseAdmin.from('notifications').select('id',{count:'exact',head:true}).eq('user_id',user.id).eq('is_read',false)
   unread=kind==='messages'?unread.eq('type','new_message'):unread.neq('type','new_message')
@@ -45,12 +46,12 @@ export async function PATCH(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   let body
-  try{body=await req.json()}catch{return NextResponse.json({error:'Invalid request'},{status:400})}
+  try{body=await readJsonObject(req)}catch(error){const e=safeRequestError(error);return NextResponse.json({error:e.message},{status:e.status})}
   const {ids,mark_all}=body||{}
   const kind=body?.kind==='messages'?'messages':'general'
   let query=supabaseAdmin.from('notifications').update({is_read:true}).eq('user_id',user.id).eq('is_read',false)
   query=kind==='messages'?query.eq('type','new_message'):query.neq('type','new_message')
-  if(!mark_all){
+  if(mark_all!==true){
     if(!Array.isArray(ids)||!ids.length||ids.length>50||ids.some((id:unknown)=>typeof id!=='string'||!UUID_RE.test(id)))return NextResponse.json({error:'Invalid notification IDs'},{status:400})
     query=query.in('id',ids)
   }

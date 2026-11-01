@@ -1,5 +1,9 @@
 # BeatToday codebase audit
 
+2026-11-01 follow-up: see [PLATFORM_SECURITY_AUDIT.md](PLATFORM_SECURITY_AUDIT.md)
+for the new security/payment review, local remediations and specifically approved
+messaging migration verification. The original findings below remain historical.
+
 Date: 2026-10-26. Scope: repository-wide architecture and static risk review, with deeper tracing of identity, RLS, checkout, fulfillment, payouts, media, and licenses. During the initial audit, no application or database operations were executed; only this report and project safety instructions were added.
 
 Follow-up: migration `039_restrict_financial_access.sql` was prepared for C1/C2, with isolated PostgreSQL regression tests and safer setup documentation. On 2026-10-26, read-only Supabase verification confirmed its protections are active in BeatToday; the agent did not apply it. Migration history is empty, so this conclusion comes from effective grants, function bodies, defaults and RLS. See `supabase/LIVE_VERIFICATION.md` and `supabase/SECURITY_ROLLOUT.md`. The findings below retain the original audit evidence; remaining findings are not remediated by 039.

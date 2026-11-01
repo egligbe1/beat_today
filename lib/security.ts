@@ -26,3 +26,11 @@ export function safeExternalUrl(value: unknown): string | undefined {
     if (['http:', 'https:'].includes(url.protocol) && !url.username && !url.password) return url.href
   } catch { /* Invalid public profile links are not rendered. */ }
 }
+
+/** ASCII fallback prevents header controls; RFC 5987 retains the original Unicode title. */
+export function attachmentDisposition(filename:string) {
+ const clean=filename.replace(/[\u0000-\u001f\u007f"\\/]/g,'_').slice(0,180)||'download'
+ const fallback=clean.replace(/[^\x20-\x7e]/g,'_')
+ const encoded=encodeURIComponent(clean).replace(/[!'()*]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase())
+ return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`
+}

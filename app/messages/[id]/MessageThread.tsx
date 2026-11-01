@@ -1,10 +1,10 @@
 'use client'
-import {useState,useEffect,useRef} from 'react'
+import {useCallback,useState,useEffect,useRef} from 'react'
 import {Send,Loader2,ArrowDown} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import type {ChatMessage as Message} from '@/lib/types'
-import {mergeMessages,messageCursor} from '@/lib/messages'
+import {mergeMessages,messageCursor,messageAttempt,type MessageAttempt} from '@/lib/messages'
 import {useLiveRefresh} from '@/lib/hooks/useLiveRefresh'
 
 interface Props {
@@ -16,20 +16,21 @@ export default function MessageThread({conversationId,currentUserId,initialMessa
  const messagesRef=useRef(initialMessages)
  const active=useRef(true),syncing=useRef(false)
  useEffect(()=>{active.current=true;return()=>{active.current=false}},[])
+ const attempt=useRef<MessageAttempt|null>(null)
  const cursor=useRef(messageCursor(initialMessages.at(-1)))
  const [input,setInput]=useState(''),[sending,setSending]=useState(false),[error,setError]=useState(''),[syncError,setSyncError]=useState('')
  const [unseen,setUnseen]=useState(0)
  const scrollRef=useRef<HTMLDivElement>(null),bottomRef=useRef<HTMLDivElement>(null)
  const follow=useRef(true),readPending=useRef(new Set<string>())
- function receive(incoming:Message[]){
+ const receive=useCallback((incoming:Message[])=>{
   if(!active.current)return
   const known=new Set(messagesRef.current.map(message=>message.id))
   const added=incoming.filter(message=>!known.has(message.id)&&message.sender_id!==currentUserId).length
   const merged=mergeMessages(messagesRef.current,incoming)
   messagesRef.current=merged;setMessages(merged)
   if(added&&!follow.current)setUnseen(n=>n+added)
- }
- useEffect(()=>{receive(initialMessages)},[initialMessages])
+ },[currentUserId])
+ useEffect(()=>{receive(initialMessages)},[initialMessages,receive])
  useEffect(()=>{if(follow.current){bottomRef.current?.scrollIntoView({behavior:'auto',block:'nearest'});setUnseen(0)}},[messages])
  async function markRead(){
   if(!active.current||!follow.current||document.visibilityState!=='visible')return
@@ -69,12 +70,12 @@ export default function MessageThread({conversationId,currentUserId,initialMessa
  useLiveRefresh(sync,[{table:'messages',filter:`conversation_id=eq.${conversationId}`}])
  async function handleSend(event:React.FormEvent){
   event.preventDefault();if(!input.trim()||sending)return
-  const content=input.trim();setSending(true);setError('')
+  const content=input.trim();attempt.current=messageAttempt(attempt.current,conversationId,content);setSending(true);setError('')
   try{
-   const response=await fetch('/api/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversation_id:conversationId,content})})
+   const response=await fetch('/api/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversation_id:conversationId,content,request_id:attempt.current.requestId})})
    const result=await response.json()
    if(!response.ok||!result.message?.id)throw new Error(result.error||'Message could not be sent')
-   follow.current=true;receive([result.message]);setInput('');void sync()
+   attempt.current=null;follow.current=true;receive([result.message]);setInput('');void sync()
   }catch(error){setError(error instanceof Error?error.message:'Message could not be sent. Your draft is still here; please try again.')}
   finally{setSending(false)}
  }

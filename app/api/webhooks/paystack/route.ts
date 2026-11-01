@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server'
-import crypto from 'node:crypto'
+import {validPaystackSignature} from '@/lib/paymentSignature'
+import {readRequestText,RequestError} from '@/lib/http'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { settleVerifiedPayment } from '@/lib/payments'
 export async function POST(request: Request) {
   try {
-    const body = await request.text()
-    const secret = process.env.PAYSTACK_SECRET_KEY
-    const signature = request.headers.get('x-paystack-signature') || ''
-    if (!secret || !/^[a-f0-9]{128}$/i.test(signature)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const expected = crypto.createHmac('sha512', secret).update(body).digest()
-    if (!crypto.timingSafeEqual(expected, Buffer.from(signature, 'hex'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const secret=process.env.PAYSTACK_SECRET_KEY
+    const signature=request.headers.get('x-paystack-signature')
+    if(!secret||!signature||!/^[a-f0-9]{128}$/i.test(signature))return NextResponse.json({error:'Unauthorized'},{status:401})
+    const body=await readRequestText(request,256000)
+    if(!validPaystackSignature(body,signature,secret))return NextResponse.json({error:'Unauthorized'},{status:401})
     const event = JSON.parse(body)
     if (event.event === 'charge.success') await settleVerifiedPayment({ ...event.data, status: 'success' })
     if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(event.event)) {
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ received: true })
   } catch (error) {
+    if(error instanceof RequestError)return NextResponse.json({error:error.message},{status:error.status})
     console.error('Payment webhook requires retry/reconciliation', error)
     return NextResponse.json({ error: 'Processing failed; retry required' }, { status: 500 })
   }

@@ -115,7 +115,7 @@ export default function EditBeatPage() {
           ? convertToWebP(files.cover).catch(() => files.cover!).then(f => uploadToR2({ purpose: 'cover', file: f, beatId, ext: 'webp', contentType: 'image/webp' }))
           : Promise.resolve(null),
         files.mp3Clean
-          ? uploadToR2({ purpose: 'master', file: files.mp3Clean, beatId, ext: cleanExt, contentType: files.mp3Clean.type || 'audio/mpeg' })
+          ? uploadToR2({ purpose: 'master', file: files.mp3Clean, beatId, ext: cleanExt, contentType: files.mp3Clean.type || (cleanExt === 'wav' ? 'audio/wav' : 'audio/mpeg') })
           : Promise.resolve(null),
         files.stemsZip
           ? uploadToR2({ purpose: 'stems', file: files.stemsZip, beatId, ext: 'zip', contentType: files.stemsZip.type || 'application/zip' })

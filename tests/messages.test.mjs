@@ -2,7 +2,7 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {PGlite} from '@electric-sql/pglite'
-import {mergeMessages,messageCursor,validMessageTimestamp} from '../lib/messages.ts'
+import {mergeMessages,messageCursor,validMessageTimestamp,messageAttempt} from '../lib/messages.ts'
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 const message=(n,time='2026-10-26T12:00:00.123456+00:00')=>({id:id(n),conversation_id:id(20),sender_id:id(10),content:'Message '+n,created_at:time,is_read:false})
 test('send response and repeated realtime/catch-up delivery produce one ordered message',()=>{
@@ -67,4 +67,12 @@ test('message catch-up covers a full page of equal timestamps without losing the
  assert.equal(second.length,50)
  assert.equal(new Set([...first,...second].map(row=>row.id)).size,150)
  assert.equal((await page(second.at(-1).created_at,second.at(-1).id)).rows.length,0)
+})
+
+test('an uncertain send keeps its key; success or intentionally changed content starts a new request',()=>{
+ const first=messageAttempt(null,id(20),'Hello')
+ assert.equal(messageAttempt(first,id(20),'Hello'),first)
+ assert.notEqual(messageAttempt(null,id(20),'Hello').requestId,first.requestId)
+ assert.notEqual(messageAttempt(first,id(20),'Changed').requestId,first.requestId)
+ assert.notEqual(messageAttempt(first,id(21),'Hello').requestId,first.requestId)
 })

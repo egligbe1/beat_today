@@ -5,7 +5,7 @@ export const metadata = {
   description: 'BeatToday Privacy Policy. Learn how we collect, use, and protect your data.',
 }
 
-const LAST_UPDATED = 'April 9, 2025'
+const LAST_UPDATED = 'November 1, 2026'
 
 const SECTIONS = [
   {
@@ -22,11 +22,11 @@ const SECTIONS = [
   },
   {
     title: '4. Payment Processing',
-    content: `All payments are processed by Paystack. When you make a purchase or set up payout bank details, your financial information is transmitted directly to Paystack's secure servers. BeatToday stores only the Paystack payment reference and the last 4 digits of your bank account number for display purposes. We never store full card numbers or full bank account numbers.\n\nPaystack's privacy policy is available at paystack.com/privacy.`
+    content: `Paystack processes checkout payments. BeatToday stores payment references, order and license records, amounts, and payment status. Card details entered on Paystack checkout are handled by Paystack; BeatToday does not collect or store full card numbers. Producer payout details, including the bank account or mobile money number and account name you provide, are submitted through BeatToday to Paystack and stored in producer settings to manage payouts. We also store Paystack recipient codes.\n\nPaystack's privacy policy is available at paystack.com/privacy.`
   },
   {
     title: '5. Data Sharing',
-    content: `We share your data only with:\n\n• **Paystack:** For payment processing and bank transfers\n• **Supabase:** Our database and authentication infrastructure\n• **Vercel:** Our hosting and serverless functions infrastructure\n• **Law Enforcement:** When legally required to do so\n\nWe do not share your data with advertisers or marketing companies.`
+    content: `We share your data only with:\n\n• **Paystack:** For payment processing and bank transfers\n• **Supabase:** Our database and authentication infrastructure\n• **Render:** Our application hosting infrastructure\n• **Cloudflare R2:** Storage and delivery of uploaded files\n• **Resend:** Transactional email delivery\n• **Upstash QStash:** Scheduled background jobs\n• **Law Enforcement:** When legally required to do so\n\nWe do not share your data with advertisers or marketing companies.`
   },
   {
     title: '6. Data Retention',

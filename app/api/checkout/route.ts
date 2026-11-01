@@ -1,3 +1,4 @@
+import { readJsonObject, RequestError } from '@/lib/http'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
@@ -15,9 +16,9 @@ export async function POST(request: Request) {
     const { data: { user } } = await auth.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!await rateLimit(`checkout:${user.id}`, 10, 60)) return NextResponse.json({ error: 'Please wait before retrying checkout' }, { status: 429 })
-    const { items, promo_code, offer_id } = await request.json()
+    const { items, promo_code, offer_id } = await readJsonObject(request,20000)
     if (!Array.isArray(items) || items.length < 1 || items.length > 20) return NextResponse.json({ error: 'Choose between 1 and 20 beats' }, { status: 400 })
-    const rate = (await getExchangeRates()).GHS
+    const rate = (await getExchangeRates({allowFallback:false})).GHS
     if (!Number.isFinite(rate) || rate <= 0) throw new Error('Exchange rate unavailable')
     const reference = `BT-${randomUUID()}`
     const defaults = { mp3: LICENSE_DEFAULTS.basic, wav: LICENSE_DEFAULTS.premium, trackout: LICENSE_DEFAULTS.unlimited, exclusive: LICENSE_DEFAULTS.exclusive }
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     if (!response.ok || !result.status || !result.data?.authorization_url) throw new Error('Payment initialization failed')
     return NextResponse.json({ url: result.data.authorization_url })
   } catch (error) {
+    if(error instanceof RequestError)return NextResponse.json({error:error.message},{status:error.status})
     // Timeouts are ambiguous. Preserve pending orders for late verified charges.
     console.error('Checkout initialization failed', { orderId, error })
     return NextResponse.json({ error: 'Unable to start checkout. Please review availability and try again.' }, { status: 400 })

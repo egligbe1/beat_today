@@ -1,6 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   compress: true,
+  async headers() {
+    return [{source:'/:path*',headers:[
+      {key:'X-Content-Type-Options',value:'nosniff'},
+      {key:'X-Frame-Options',value:'DENY'},
+      {key:'Referrer-Policy',value:'strict-origin-when-cross-origin'},
+      // Compatible baseline. Script nonces need a separately tested rollout.
+      {key:'Content-Security-Policy',value:"base-uri 'self'; object-src 'none'; frame-ancestors 'none'"},
+    ]}]
+  },
   poweredByHeader: false,
   images: {
     // Render's small single instance is CPU-bound; its on-the-fly image

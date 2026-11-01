@@ -1,3 +1,6 @@
+import { readJsonObject, RequestError, safeRequestError } from '@/lib/http'
+import { payoutAccount, payoutBank, payoutName } from '@/lib/payoutValidation'
+import { rateLimit } from '@/lib/rateLimit'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
@@ -20,18 +23,20 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return new NextResponse('Unauthorized', { status: 401 })
 
-    const body = await req.json()
+    const body = await readJsonObject(req,8000)
     const { method = 'bank', country = 'Ghana' } = body
+    if(typeof method!=='string'||!['bank','mobile_money'].includes(method)||typeof country!=='string'||country.length>80)throw new RequestError('Invalid payout method or country')
     const { data: profile } = await supabaseAdmin.from('users_profiles').select('role').eq('id', user.id).single()
     if (profile?.role !== 'producer') return NextResponse.json({ error: 'Producer account required' }, { status: 403 })
 
+    if(!await rateLimit('setup-recipient:'+user.id,5,60))return NextResponse.json({error:'Please wait before changing your payout details'},{status:429})
     const secret = process.env.PAYSTACK_SECRET_KEY
     if (!secret) throw new Error('Paystack secret key not configured.')
 
-    const currency = PAYSTACK_CURRENCY[country]
+    const currency = PAYSTACK_CURRENCY[country as string]
     if (!currency || country !== 'Ghana') {
       // Non-Paystack country — save details for manual review, no recipient code
-      await upsertWallet(user.id, null, null, supabase)
+      await upsertWallet(user.id)
       return NextResponse.json({ success: true, recipient_code: null, manualReview: true })
     }
 
@@ -39,17 +44,17 @@ export async function POST(req: Request) {
     let recipientField: 'recipient_code' | 'mobile_money_recipient_code' = 'recipient_code'
 
     if (method === 'mobile_money') {
-      const { mobile_number, mobile_network, account_name } = body
+      const mobile_number=payoutAccount(body.mobile_number),mobile_network=payoutBank(body.mobile_network),account_name=payoutName(body.account_name)
 
       if (!mobile_number || !mobile_network) {
         throw new Error('Mobile number and network are required.')
       }
 
-      // Kenya uses 'mpesa' type; others use 'mobile_money'
-      const recipientType = country === 'Kenya' ? 'mpesa' : 'mobile_money'
+      const recipientType = 'mobile_money'
 
       const res = await fetch('https://api.paystack.co/transferrecipient', {
         method: 'POST',
+        signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: recipientType,
@@ -60,22 +65,21 @@ export async function POST(req: Request) {
         }),
       })
       const data = await res.json()
-      if (!data.status) throw new Error(data.message || 'Failed to create mobile money recipient.')
+      if (!res.ok || !data.status || typeof data.data?.recipient_code!=='string') throw new Error('Recipient setup unavailable')
       recipient_code = data.data.recipient_code
       recipientField = 'mobile_money_recipient_code'
 
     } else {
       // Bank account
-      const { account_number, bank_code, account_name, bank_name } = body
+      const account_number=payoutAccount(body.account_number),bank_code=payoutBank(body.bank_code),account_name=payoutName(body.account_name)
 
       if (!account_number || !bank_code) throw new Error('Account number and bank code are required.')
 
-      const recipientType = country === 'Nigeria' ? 'nuban'
-        : country === 'South Africa' ? 'basa'
-        : 'ghipss' // Ghana and others
+      const recipientType = 'ghipss'
 
       const res = await fetch('https://api.paystack.co/transferrecipient', {
         method: 'POST',
+        signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: recipientType,
@@ -86,7 +90,7 @@ export async function POST(req: Request) {
         }),
       })
       const data = await res.json()
-      if (!data.status) throw new Error(data.message || 'Failed to create bank recipient.')
+      if (!res.ok || !data.status || typeof data.data?.recipient_code!=='string') throw new Error('Recipient setup unavailable')
       recipient_code = data.data.recipient_code
       recipientField = 'recipient_code'
     }
@@ -103,16 +107,13 @@ export async function POST(req: Request) {
     if (saveError) throw saveError
 
     return NextResponse.json({ success: true, recipient_code })
-  } catch (err: any) {
-    console.error('Recipient setup failed:', err)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    const e=safeRequestError(err,'Payout details could not be saved. Please try again.')
+    return NextResponse.json({ success: false, error: e.message }, { status: e.status, headers:{'Cache-Control':'private, no-store'} })
   }
 }
 
-async function upsertWallet(userId: string, recipientCode: string | null, mobileMmCode: string | null, supabase: any) {
-  const payload: any = { producer_id: userId }
-  if (recipientCode !== null) payload.recipient_code = recipientCode
-  if (mobileMmCode !== null) payload.mobile_money_recipient_code = mobileMmCode
-
-  await supabaseAdmin.from('wallets').upsert(payload, { onConflict: 'producer_id' })
+async function upsertWallet(userId:string) {
+ const {error}=await supabaseAdmin.from('wallets').upsert({producer_id:userId},{onConflict:'producer_id'})
+ if(error)throw error
 }

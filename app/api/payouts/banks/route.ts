@@ -17,15 +17,15 @@ export async function GET(req: Request) {
     const countryCode = COUNTRY_CODE_MAP[country]
 
     if (!countryCode) {
-      console.error(`[Banks API] Unsupported country: ${country}`)
+
       return NextResponse.json({ success: false, error: 'Unsupported country for bank lookup via Paystack.' }, { status: 400 })
     }
 
-    console.log(`[Banks API] Fetching banks for: ${country} (${countryCode})`)
+
 
     const secret = process.env.PAYSTACK_SECRET_KEY
     if (!secret) {
-      return NextResponse.json({ success: false, error: 'Paystack secret key is not configured.' }, { status: 500 })
+      return NextResponse.json({ success: false, error: 'Bank lookup is temporarily unavailable.' }, { status: 500 })
     }
 
     const response = await fetch(`https://api.paystack.co/bank?country=${countryCode}`, {
@@ -34,17 +34,18 @@ export async function GET(req: Request) {
         Authorization: `Bearer ${secret}`,
         'Content-Type': 'application/json',
       },
-      cache: 'no-store'
+      signal: AbortSignal.timeout(15000),
+      next: {revalidate:300}
     })
 
     const data = await response.json()
-    if (!data.status) {
-      return NextResponse.json({ success: false, error: data.message || 'Failed to fetch banks from Paystack.' }, { status: 502 })
+    if (!response.ok || !data.status) {
+      return NextResponse.json({ success: false, error: 'Bank lookup is temporarily unavailable.' }, { status: 502 })
     }
 
     const banks = Array.isArray(data.data)
       ? data.data.map((bank: any) => ({
-          ...bank,
+
           code: bank.code,
           name: bank.name,
         }))
@@ -55,7 +56,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, banks })
   } catch (err: any) {
-    console.error('Bank lookup failed:', err)
-    return NextResponse.json({ success: false, error: err.message || 'Internal server error' }, { status: 500 })
+    console.error('Bank lookup failed')
+    return NextResponse.json({ success: false, error: 'Bank lookup is temporarily unavailable.' }, { status: 500 })
   }
 }

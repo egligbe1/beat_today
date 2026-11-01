@@ -1,3 +1,4 @@
+import { readRequestText, safeRequestError } from '@/lib/http'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { missingStudioSchema } from '@/lib/studio/domain'
@@ -6,9 +7,8 @@ export async function POST(request: Request) {
  const db = await createClient()
  const { data: { user } } = await db.auth.getUser()
  if (!user) return NextResponse.json({ error: 'Sign in to continue' }, { status: 401 })
- if (Number(request.headers.get('content-length') || 0) > 20000) return NextResponse.json({ error: 'Request too large' }, { status: 413 })
- const raw = await request.text()
- if (new TextEncoder().encode(raw).length > 20000) return NextResponse.json({ error: 'Request too large' }, { status: 413 })
+ let raw
+ try{raw=await readRequestText(request,20000)}catch(error){const e=safeRequestError(error);return NextResponse.json({error:e.message},{status:e.status})}
  let body
  try { body = JSON.parse(raw) } catch { return NextResponse.json({ error: 'Invalid booking request' }, { status: 400 }) }
  if (!body || !actions.has(body.action) || !body.payload || typeof body.payload !== 'object' || Array.isArray(body.payload)) return NextResponse.json({ error: 'Invalid booking request' }, { status: 400 })

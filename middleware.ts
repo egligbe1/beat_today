@@ -1,3 +1,4 @@
+import { validRequestOrigin } from '@/lib/http'
 import { authReturnTo } from '@/lib/authReturn'
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
@@ -17,9 +18,8 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   if (pathname.startsWith('/api/') && !['GET','HEAD','OPTIONS'].includes(request.method)
     && !pathname.startsWith('/api/webhooks/') && !pathname.startsWith('/api/cron/')) {
-    const origin = request.headers.get('origin')
     const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL ? new URL(process.env.NEXT_PUBLIC_SITE_URL).origin : request.nextUrl.origin
-    if (origin && origin !== siteOrigin) return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 })
+    if (!validRequestOrigin(request,siteOrigin)) return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 })
   }
 
   // Only the dashboard (protection) and the auth pages (redirect-if-logged-in)

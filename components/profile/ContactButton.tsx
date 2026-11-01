@@ -1,15 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { MessageCircle, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
+import { messageAttempt, type MessageAttempt } from '@/lib/messages'
 import { showToast } from '@/lib/utils/toast'
 
 export default function ContactButton({ producerId, className, initialMessage = 'Hi! I wanted to reach out about your beats.' }: { producerId: string, className?: string, initialMessage?: string }) {
   const [loading, setLoading] = useState(false)
+  const attempt=useRef<MessageAttempt|null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -18,16 +20,18 @@ export default function ContactButton({ producerId, className, initialMessage = 
     if (!user) { router.push('/login?redirect='+encodeURIComponent(window.location.pathname+window.location.search)); return }
     if (user.id === producerId) return
 
+    attempt.current=messageAttempt(attempt.current,producerId,initialMessage)
     setLoading(true)
     try {
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient_id: producerId, content: initialMessage })
+        body: JSON.stringify({ recipient_id: producerId, content: initialMessage, request_id:attempt.current.requestId })
       })
       const data = await res.json()
       if (!res.ok || !data.conversation_id) throw new Error('Unable to start conversation')
       if (data.conversation_id) {
+        attempt.current=null
         router.push(`/messages/${data.conversation_id}`)
       }
     } catch {

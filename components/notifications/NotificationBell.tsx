@@ -1,7 +1,7 @@
 'use client'
 
 import { useLiveRefresh } from '@/lib/hooks/useLiveRefresh'
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { Bell, X, CheckCheck, ShoppingBag, UserPlus, Star, DollarSign, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -43,21 +43,21 @@ export default function NotificationBell({userId,kind='general'}:{userId:string;
 
   const requestNumber = useRef(0)
   useEffect(()=>{++requestNumber.current;setNotifications([]);setUnreadCount(0);setLoading(true)},[userId,kind])
-  async function fetchNotifications() {
+  const fetchNotifications=useCallback(async()=>{
     const number=++requestNumber.current
     try {
       const res=await fetch('/api/notifications?kind='+kind,{cache:'no-store'})
       const data=await res.json()
       if(res.ok&&number===requestNumber.current){setNotifications(data.notifications||[]);setUnreadCount(data.unread_count||0)}
     } finally {if(number===requestNumber.current)setLoading(false)}
-  }
+  },[kind])
   useLiveRefresh(fetchNotifications,userId?[{table:'notifications',filter:`user_id=eq.${userId}`}]:[],!!userId,10000)
   useEffect(()=>{
     const refresh=()=>{if(userId)void fetchNotifications().catch(()=>{})}
     window.addEventListener('beattoday:notifications-refresh',refresh)
     return()=>window.removeEventListener('beattoday:notifications-refresh',refresh)
-  },[userId,kind])
-  useEffect(()=>{if(open&&userId)void fetchNotifications().catch(()=>{})},[open,userId,kind])
+  },[userId,kind,fetchNotifications])
+  useEffect(()=>{if(open&&userId)void fetchNotifications().catch(()=>{})},[open,userId,kind,fetchNotifications])
 
   // Close panel on outside click
   useEffect(() => {

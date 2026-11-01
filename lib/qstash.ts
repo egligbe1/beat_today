@@ -1,3 +1,4 @@
+import { readRequestText } from './http'
 import { Receiver } from "@upstash/qstash"
 
 /**
@@ -17,7 +18,7 @@ export async function verifyQStashSignature(req: Request): Promise<boolean> {
   });
 
   try {
-    const rawBody = await req.text();
+    const rawBody = await readRequestText(req,20000);
     const isValid = await receiver.verify({
       signature,
       body: rawBody,

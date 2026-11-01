@@ -1,7 +1,7 @@
 'use client'
 import CustomServiceRequest from './CustomServiceRequest'
 import DateInput from '@/components/ui/DateInput'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CalendarDays, CheckCircle2, Clock3, ArrowRight, MapPin, Music2 } from 'lucide-react'
@@ -43,13 +43,13 @@ export default function BookingRequest({ catalog, signedIn, owner = false, manua
  function rememberDraft() {
   try { sessionStorage.setItem(draftKey,JSON.stringify({serviceId,day,selected,notes,savedAt:Date.now()})) } catch {}
  }
- async function loadSlots(forDay:string, signal:AbortSignal) {
+ const loadSlots=useCallback(async(forDay:string, signal:AbortSignal)=>{
   const response=await fetch(`/api/studio/bookings/slots?service=${encodeURIComponent(serviceId)}&day=${encodeURIComponent(forDay)}`,{signal,cache:'no-store'})
   const result=await response.json()
   if(!response.ok) throw new Error(result.error || 'Available times could not be loaded')
   if(!Array.isArray(result.slots)) throw new Error('Available times could not be loaded')
   return result.slots as string[]
- }
+ },[serviceId])
  async function findNextDay() {
   searchController.current?.abort()
   const controller=new AbortController();searchController.current=controller
@@ -78,7 +78,7 @@ export default function BookingRequest({ catalog, signedIn, owner = false, manua
    .catch(e => { if(!controller.signal.aborted) setError(e.message || 'Available times could not be loaded') })
    .finally(() => { if(!controller.signal.aborted) setLoading(false) })
   return () => controller.abort()
- }, [serviceId, day, ready, reload])
+ }, [serviceId, day, ready, reload, loadSlots])
  async function submit(e: FormEvent<HTMLFormElement>) {
   e.preventDefault(); if(busy || loading || !selected || !service || !slots.includes(selected)) return
   const form = new FormData(e.currentTarget); setBusy(true); setError('')

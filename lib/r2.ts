@@ -1,4 +1,5 @@
 import 'server-only'
+import { attachmentDisposition } from './security'
 import {
   S3Client,
   PutObjectCommand,
@@ -44,7 +45,7 @@ export function publicUrl(key: string): string {
 
 /** Presigned PUT URL for a browser to upload a file directly to R2. */
 export function presignUpload(bucket: string, key: string, contentType: string, expiresIn = 600, size?: number): Promise<string> {
-  return getSignedUrl(r2(), new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, ContentLength: size }), { expiresIn })
+  return getSignedUrl(r2(), new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, ContentLength: size }), { expiresIn, signableHeaders:new Set(['content-type']) })
 }
 
 /** Presigned GET URL for a private object (optionally forcing a download filename). */
@@ -55,7 +56,7 @@ export function presignDownload(key: string, opts: { bucket?: string; expiresIn?
     new GetObjectCommand({
       Bucket: bucket,
       Key: key,
-      ...(filename ? { ResponseContentDisposition: `attachment; filename="${filename.replace(/"/g, '')}"` } : {}),
+      ...(filename ? { ResponseContentDisposition: attachmentDisposition(filename) } : {}),
     }),
     { expiresIn }
   )

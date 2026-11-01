@@ -213,7 +213,7 @@ export default function UploadPage() {
       const coverWebp = await convertToWebP(files.cover!).catch(() => files.cover!)
       const [coverRes, masterRes, stemsRes] = await Promise.all([
         uploadToR2({ purpose: 'cover', file: coverWebp, beatId, ext: 'webp', contentType: 'image/webp' }),
-        uploadToR2({ purpose: 'master', file: files.mp3Clean, beatId, ext: cleanExt, contentType: files.mp3Clean.type || 'audio/mpeg' }),
+        uploadToR2({ purpose: 'master', file: files.mp3Clean, beatId, ext: cleanExt, contentType: files.mp3Clean.type || (cleanExt === 'wav' ? 'audio/wav' : 'audio/mpeg') }),
         (limits.stems_upload && files.stemsZip)
           ? uploadToR2({ purpose: 'stems', file: files.stemsZip, beatId, ext: 'zip', contentType: files.stemsZip.type || 'application/zip' })
           : Promise.resolve(null),

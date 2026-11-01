@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto'
+import { markConversationRead } from '@/lib/messageReadReceipts'
+import { readJsonObject, safeRequestError } from '@/lib/http'
 import { validMessageTimestamp } from '@/lib/messages'
 import { UUID_RE } from '@/lib/security'
 import { rateLimit } from '@/lib/rateLimit'
@@ -40,12 +43,11 @@ export async function PATCH(req:Request) {
  const {data:{user}}=await db.auth.getUser()
  if(!user)return NextResponse.json({error:'Sign in to continue'},{status:401})
  let body
- try{body=await req.json()}catch{return NextResponse.json({error:'Invalid request'},{status:400})}
- if(!UUID_RE.test(body?.conversation_id||'')||!Array.isArray(body?.ids)||!body.ids.length||body.ids.length>100||body.ids.some((id:unknown)=>typeof id!=='string'||!UUID_RE.test(id)))return NextResponse.json({error:'Invalid request'},{status:400})
+ try{body=await readJsonObject(req)}catch(error){const e=safeRequestError(error);return NextResponse.json({error:e.message},{status:e.status})}
+ if(typeof body.conversation_id!=='string'||!UUID_RE.test(body.conversation_id)||!Array.isArray(body?.ids)||!body.ids.length||body.ids.length>100||body.ids.some((id:unknown)=>typeof id!=='string'||!UUID_RE.test(id)))return NextResponse.json({error:'Invalid request'},{status:400})
  try{
   if(!await participant(db,body.conversation_id,user.id))return NextResponse.json({error:'Conversation not found'},{status:404})
-  const {error}=await supabaseAdmin.from('messages').update({is_read:true}).eq('conversation_id',body.conversation_id).in('id',body.ids).neq('sender_id',user.id).eq('is_read',false)
-  if(error)throw error
+  await markConversationRead(supabaseAdmin,db,user.id,body.conversation_id,body.ids)
   return NextResponse.json({success:true})
  }catch{return NextResponse.json({error:'Messages could not be marked read'},{status:503})}
 }
@@ -58,12 +60,24 @@ export async function POST(req: Request) {
   if (!await rateLimit('app/api/messages/route.ts:' + user.id, 30, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
 
   let body
-  try { const raw=await req.text();if(new TextEncoder().encode(raw).length>20000)return NextResponse.json({error:'Message too large'},{status:413});body=JSON.parse(raw) } catch {return NextResponse.json({error:'Invalid message'},{status:400})}
-  const {recipient_id,content,conversation_id}=body||{}
+  try{body=await readJsonObject(req)}catch(error){const e=safeRequestError(error);return NextResponse.json({error:e.message},{status:e.status})}
+  const {content}=body
+  const recipient_id=typeof body.recipient_id==='string'?body.recipient_id:''
+  const conversation_id=typeof body.conversation_id==='string'?body.conversation_id:''
+  if((body.conversation_id!=null&&typeof body.conversation_id!=='string')||(body.recipient_id!=null&&typeof body.recipient_id!=='string'))return NextResponse.json({error:'Invalid conversation or recipient'},{status:400})
   if((conversation_id&&!UUID_RE.test(conversation_id))||(!conversation_id&&!UUID_RE.test(recipient_id||'')))return NextResponse.json({error:'Invalid conversation or recipient'},{status:400})
 
   if (typeof content !== 'string' || !content.trim() || content.length > 5000) {
     return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 })
+  }
+
+  if(body.request_id!=null&&(typeof body.request_id!=='string'||!UUID_RE.test(body.request_id)))return NextResponse.json({error:'Invalid message request ID'},{status:400})
+  // Migration applied with specific authorization on 2026-11-01. When on,
+  // errors never fall through to a second, non-atomic insert.
+  if(process.env.MESSAGE_IDEMPOTENCY_ENABLED!=='false'){
+    const {data,error}=await supabase.rpc('send_message_once',{p_request:body.request_id||randomUUID(),p_content:content.trim(),p_conversation:conversation_id||null,p_recipient:recipient_id||null})
+    if(error)return NextResponse.json({error:error.code==='P0429'?'Please wait before sending another message':error.code==='42501'?'Conversation not found':error.code==='P0001'?'Check the message or start a new send attempt':'Message could not be sent. Retry with the same draft.'},{status:error.code==='P0429'?429:error.code==='42501'?403:error.code==='P0001'?409:503})
+    return NextResponse.json(data,{headers:{'Cache-Control':'private, no-store'}})
   }
 
   let convId = conversation_id
@@ -140,7 +154,7 @@ export async function POST(req: Request) {
       title: 'New Message',
       body: `${sender?.display_name || 'Someone'}: ${content.trim().slice(0, 60)}${content.length > 60 ? '...' : ''}`,
       link: `/messages/${convId}`,
-      metadata: { conversation_id: convId }
+      metadata: { conversation_id: convId, message_id: message.id }
     })
   }
 

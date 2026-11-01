@@ -16,3 +16,9 @@ export function validMessageTimestamp(value:string) {
 function microsecondRemainder(value:string) {
  return Number((value.match(/\.(\d+)/)?.[1]||'').padEnd(6,'0').slice(3,6))
 }
+
+export type MessageAttempt={target:string;content:string;requestId:string}
+/** Keep the same key after an uncertain response; a successful send clears it. */
+export function messageAttempt(previous:MessageAttempt|null,target:string,content:string):MessageAttempt {
+ return previous?.target===target&&previous.content===content?previous:{target,content,requestId:crypto.randomUUID()}
+}

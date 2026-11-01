@@ -1,3 +1,4 @@
+import { readJsonObject, safeRequestError } from '@/lib/http'
 import { NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -8,7 +9,9 @@ export async function POST(request: Request) {
   const {data:{user}}=await (await createClient()).auth.getUser()
   if(!user) return NextResponse.json({error:'Unauthorized'},{status:401})
   if(!await rateLimit(`watermark:${user.id}`,5,60)) return NextResponse.json({error:'Please wait'},{status:429})
-  const {beat_id}=await request.json()
+  let body
+  try{body=await readJsonObject(request,2000)}catch(error){const e=safeRequestError(error);return NextResponse.json({error:e.message},{status:e.status})}
+  const beat_id=typeof body.beat_id==='string'?body.beat_id:''
   if(!UUID_RE.test(beat_id || '')) return NextResponse.json({error:'Invalid beat'},{status:400})
   const admin=createAdminClient()
   const {data:beat,error}=await admin.from('beats').select('producer_id,file_mp3_url,file_wav_url').eq('id',beat_id).single()

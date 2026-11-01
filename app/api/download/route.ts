@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { presignDownload } from '@/lib/r2'
-import { ownsAsset } from '@/lib/security'
+import { ownsAsset, UUID_RE } from '@/lib/security'
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const fileType = searchParams.get('file') // 'mp3' | 'wav' | 'stems'
     const orderId = searchParams.get('order_id')
 
-    if (!beatId || !fileType || !orderId) {
+    if (!beatId || !UUID_RE.test(beatId) || !fileType || !orderId || !UUID_RE.test(orderId)) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
     }
     if (!['mp3','wav','stems'].includes(fileType)) return NextResponse.json({ error: 'Invalid file type' }, { status: 400 })
@@ -93,7 +93,7 @@ export async function GET(req: Request) {
 
     try {
       const url = await presignDownload(filePath, { filename, expiresIn: 3600 })
-      return NextResponse.json({ url, filename })
+      return NextResponse.json({ url, filename },{headers:{'Cache-Control':'private, no-store'}})
     } catch (err) {
       console.error('Presign download error:', err)
       return NextResponse.json({ error: 'Failed to generate download link' }, { status: 500 })

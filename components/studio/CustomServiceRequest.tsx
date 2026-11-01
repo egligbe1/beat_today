@@ -1,11 +1,13 @@
 'use client'
-import {useEffect,useState,type FormEvent} from 'react'
+import {useEffect,useRef,useState,type FormEvent} from 'react'
 import {useRouter} from 'next/navigation'
 import {createClient} from '@/lib/supabase/client'
+import {messageAttempt,type MessageAttempt} from '@/lib/messages'
 import {Field,studioButton,studioInput} from './StudioHome'
 
 export default function CustomServiceRequest({producerId}:{producerId:string}) {
  const router=useRouter()
+ const attempt=useRef<MessageAttempt|null>(null)
  const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('')
  const [details,setDetails]=useState(''),[schedule,setSchedule]=useState(''),[budget,setBudget]=useState('')
  const key='custom-studio-request:'+producerId
@@ -25,9 +27,11 @@ export default function CustomServiceRequest({producerId}:{producerId:string}) {
    }
    if(user.id===producerId)throw new Error('Open your studio dashboard to manage your services.')
    const content=['Custom studio service request',details.trim(),schedule.trim()?'Preferred schedule: '+schedule.trim():'',budget.trim()?'Budget / currency: '+budget.trim():'','Please discuss scope and availability with me. This is an enquiry, not a confirmed booking.'].filter(Boolean).join('\n\n')
-   const response=await fetch('/api/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({recipient_id:producerId,content})})
+   attempt.current=messageAttempt(attempt.current,producerId,content)
+   const response=await fetch('/api/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({recipient_id:producerId,content,request_id:attempt.current.requestId})})
    const result=await response.json()
    if(!response.ok||!result.conversation_id)throw new Error(result.error||'Your custom request could not be sent.')
+   attempt.current=null
    try{sessionStorage.removeItem(key)}catch{}
    router.push('/messages/'+result.conversation_id)
   }catch(error){setError(error instanceof Error?error.message:'Your request could not be sent. Please try again.')}

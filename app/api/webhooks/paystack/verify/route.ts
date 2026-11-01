@@ -1,7 +1,9 @@
+import { rateLimit, requestAddress } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { settleVerifiedPayment, verifyPayment } from '@/lib/payments'
 export async function GET(request: Request) {
   try {
+    if(!await rateLimit('payment-verify:'+requestAddress(request),30,60))return NextResponse.json({error:'Please wait before retrying verification'},{status:429,headers:{'Cache-Control':'no-store'}})
     const tx = await verifyPayment(new URL(request.url).searchParams.get('reference') || '')
     const orderId = await settleVerifiedPayment(tx)
     return NextResponse.json({ success: true, order_id: orderId }, { headers: { 'Cache-Control': 'no-store' } })

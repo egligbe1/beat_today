@@ -1,3 +1,4 @@
+import { readRequestText, safeRequestError } from '@/lib/http'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { UUID_RE } from '@/lib/security'
@@ -8,9 +9,8 @@ export async function POST(request: Request) {
   const db = await createClient()
   const { data: { user } } = await db.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Sign in to continue' }, { status: 401 })
-  if (Number(request.headers.get('content-length') || 0) > 60000) return NextResponse.json({ error: 'Request too large' }, { status: 413 })
-  const raw = await request.text()
-  if (new TextEncoder().encode(raw).length > 60000) return NextResponse.json({ error: 'Request too large' }, { status: 413 })
+ let raw
+ try{raw=await readRequestText(request,60000)}catch(error){const e=safeRequestError(error);return NextResponse.json({error:e.message},{status:e.status})}
   let body: { action?: string; project_id?: string; payload?: unknown }
   try { body = JSON.parse(raw) } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }) }
   if (!body || !ACTIONS.has(body.action || '') || !body.payload || Array.isArray(body.payload) || typeof body.payload !== 'object'

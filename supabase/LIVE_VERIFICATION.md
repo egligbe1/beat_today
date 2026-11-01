@@ -198,3 +198,26 @@ are now in `supabase_realtime`, with RLS intact. Direct browser chat writes are
 revoked; the checked server API retains write access. Existing-row fingerprints
 and counts matched before/after. No customer content was generated as a test.
 Security-advisor findings are unchanged. See CHAT_AND_BOOKING_UX.md.
+
+
+## 2026-11-01 — specifically approved idempotent messaging
+
+The user explicitly approved only `20261101113000_idempotent_messages.sql`.
+Applied to BeatToday (`chutqhuzargkpcmccfbg`) through the Supabase plugin; recorded
+remote migration version `20261101105709`, name `idempotent_messages`. The local
+filename remains the reviewed artifact; do not bulk-replay files to match history.
+
+SHA256: `fdb9f5b9f3506583245075f17bb77c286eb5e83fe4646b0139d1c2805e3de089`.
+
+Pre/post counts: messages 6, conversations 1, notifications 9, unchanged. Existing
+messages retain null request IDs. All three tables retain RLS; authenticated direct
+message INSERT remains denied. `send_message_once` denies anon execution, permits
+authenticated execution, uses a fixed search path and derives sender from auth.uid().
+Its sender/request unique partial index is present. A missing-identity call was
+rejected before writes. No live sample messages or financial operations were run.
+
+Post-DDL advisor output has the expected authenticated security-definer warning
+for this deliberately exposed, identity/participant/rate-checked API, existing
+GraphQL schema-discovery warnings, five internal RLS/no-policy notices and leaked
+password protection disabled. See `PLATFORM_SECURITY_AUDIT.md` for triage and links.
+No unrelated migration or permission change was applied.

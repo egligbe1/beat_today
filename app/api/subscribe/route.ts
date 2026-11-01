@@ -1,3 +1,4 @@
+import { readJsonObject, safeRequestError } from '@/lib/http'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getExchangeRates } from '@/lib/utils/rates'
@@ -17,26 +18,27 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!await rateLimit(`subscribe:${user.id}`, 5, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
 
-  const { tier } = await req.json()
+  let body
+  try{body=await readJsonObject(req,2000)}catch(error){const e=safeRequestError(error);return NextResponse.json({error:e.message},{status:e.status})}
+  const tier=typeof body.tier==='string'?body.tier:''
   if (!['STARTER', 'PRO'].includes(tier)) {
     return NextResponse.json({ error: 'Invalid tier' }, { status: 400 })
   }
 
   const { data: profile } = await supabase
     .from('users_profiles')
-    .select('display_name')
+    .select('display_name,role')
     .eq('id', user.id)
     .single()
 
+  if(profile?.role!=='producer')return NextResponse.json({error:'Producer account required'},{status:403})
   const email = user.email
   if (!email) return NextResponse.json({ error: 'No email found' }, { status: 400 })
 
   // Convert USD price → GHS (Paystack only supports GHS for this merchant)
-  let ghsRate = 14.5
-  try {
-    const rates = await getExchangeRates()
-    ghsRate = rates['GHS'] || 14.5
-  } catch { /* use fallback */ }
+  let ghsRate:number
+  try{ghsRate=(await getExchangeRates({allowFallback:false})).GHS}
+  catch{return NextResponse.json({error:'Exchange rates are temporarily unavailable. Please try again shortly.'},{status:503})}
 
   const usdPrice = TIER_PRICES_USD[tier]
   const ghsAmount = Math.round(usdPrice * ghsRate * 100) // Paystack amount in pesewas
@@ -52,6 +54,7 @@ export async function POST(req: Request) {
   // Initialize a one-time Paystack transaction for the annual fee
   const res = await fetch('https://api.paystack.co/transaction/initialize', {
     method: 'POST',
+    signal: AbortSignal.timeout(15000),
     headers: {
       Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
       'Content-Type': 'application/json',
@@ -73,9 +76,9 @@ export async function POST(req: Request) {
   })
 
   const data = await res.json()
-  if (!data.status) {
-    console.error('Paystack subscription init error:', data)
-    return NextResponse.json({ error: data.message || 'Failed to initialize payment' }, { status: 500 })
+  if (!res.ok || !data.status) {
+    console.error('Paystack subscription initialization failed')
+    return NextResponse.json({ error: 'Failed to initialize payment' }, { status: 500 })
   }
 
   return NextResponse.json({ authorization_url: data.data.authorization_url })
