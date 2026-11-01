@@ -107,6 +107,11 @@ export default async function Home(props: { searchParams: Promise<{ genre?: stri
           </div>
         )}
 
+        <section className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-[#111] p-7 sm:p-12 flex flex-col md:flex-row md:items-center gap-7">
+          <div className="max-w-2xl"><p className="text-xs text-orange-400 uppercase tracking-widest font-bold">From inspiration to the studio</p><h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Make your next record with the right producer.</h2><p className="mt-4 text-zinc-400">Find producers with studio bookings, explore their services and request your next recording, mixing or production session.</p></div>
+          <Link href="/producers" className="shrink-0 md:ml-auto inline-flex items-center justify-center gap-2 rounded-full bg-orange-500 px-7 py-4 font-bold text-sm">Find a producer to book<ArrowRight className="h-4 w-4"/></Link>
+        </section>
+
         {/* For Artists / For Producers */}
         <ValuePropSplit />
 
@@ -126,7 +131,7 @@ export default async function Home(props: { searchParams: Promise<{ genre?: stri
               {producers.map((producer) => (
                 <Link
                   key={producer.id}
-                  href={`/@${producer.handle}`}
+                  href={`/${encodeURIComponent(producer.handle)}`}
                   className="group flex flex-col items-center gap-3"
                 >
                   <div className="relative w-16 h-16 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-bg-elevated border-2 border-white/10 group-hover:border-[#FFB000] transition-colors shadow-xl">
