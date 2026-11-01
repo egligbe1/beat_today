@@ -1,3 +1,4 @@
+import {UUID_RE} from './security'
 import {createHash,timingSafeEqual} from 'node:crypto'
 import type {SupabaseClient} from '@supabase/supabase-js'
 export function validOperatorToken(header:string|null,secret:string|undefined) {
@@ -15,7 +16,13 @@ export async function operationalCounts(db:SupabaseClient,now=Date.now()) {
   count('watermark_jobs').eq('status','failed'),
   count('watermark_jobs').eq('status','processing').lt('claimed_at',stale),
   count('payment_reconciliations'),
+  count('payment_cases').eq('state','OPEN'),
  ].map(query=>query.abortSignal(AbortSignal.timeout(5000))))
  if(results.some(result=>result.error||result.count===null))throw new Error('Dependency check failed')
- return Object.fromEntries(['pending_deliveries','failed_deliveries','failed_watermarks','stale_watermark_leases','recorded_payment_exceptions'].map((name,index)=>[name,results[index].count!])) as Record<string,number>
+ return Object.fromEntries(['pending_deliveries','failed_deliveries','failed_watermarks','stale_watermark_leases','recorded_payment_exceptions','open_payment_cases'].map((name,index)=>[name,results[index].count!])) as Record<string,number>
+}
+
+export function isOperator(userId:string|undefined,configured=process.env.OPERATIONS_USER_IDS){
+ if(!userId||!UUID_RE.test(userId)||!configured)return false
+ return configured.split(',').map(value=>value.trim().toLowerCase()).filter(value=>UUID_RE.test(value)).includes(userId.toLowerCase())
 }

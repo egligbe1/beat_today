@@ -1,3 +1,4 @@
+import {paymentCaseEvent} from '@/lib/paymentCases'
 import { NextResponse } from 'next/server'
 import {validPaystackSignature} from '@/lib/paymentSignature'
 import {readRequestText,RequestError} from '@/lib/http'
@@ -11,6 +12,11 @@ export async function POST(request: Request) {
     const body=await readRequestText(request,256000)
     if(!validPaystackSignature(body,signature,secret))return NextResponse.json({error:'Unauthorized'},{status:401})
     const event = JSON.parse(body)
+    const paymentCase=paymentCaseEvent(event,body)
+    if(paymentCase){
+      const {error}=await createAdminClient().rpc('record_payment_case',paymentCase)
+      if(error)throw error
+    }
     if (event.event === 'charge.success') await settleVerifiedPayment({ ...event.data, status: 'success' })
     if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(event.event)) {
       const { error } = await createAdminClient().rpc('finish_payout', {

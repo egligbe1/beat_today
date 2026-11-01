@@ -26,7 +26,7 @@ const SECTIONS = [
   },
   {
     title: '5. Data Sharing',
-    content: `We share your data only with:\n\n• **Paystack:** For payment processing and bank transfers\n• **Supabase:** Our database and authentication infrastructure\n• **Render:** Our application hosting infrastructure\n• **Cloudflare R2:** Storage and delivery of uploaded files\n• **Resend:** Transactional email delivery\n• **Upstash QStash:** Scheduled background jobs\n• **Law Enforcement:** When legally required to do so\n\nWe do not share your data with advertisers or marketing companies.`
+    content: `We share your data only with:\n\n• **Paystack:** For payment processing and bank transfers\n• **Supabase:** Our database and authentication infrastructure\n• **Render and Vercel:** Our application hosting infrastructure\n• **Cloudflare R2:** Storage and delivery of uploaded files\n• **Resend:** Transactional email delivery\n• **Upstash QStash:** Scheduled background jobs\n• **Law Enforcement:** When legally required to do so\n\nWe do not share your data with advertisers or marketing companies.`
   },
   {
     title: '6. Data Retention',

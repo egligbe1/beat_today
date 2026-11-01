@@ -221,3 +221,17 @@ for this deliberately exposed, identity/participant/rate-checked API, existing
 GraphQL schema-discovery warnings, five internal RLS/no-policy notices and leaked
 password protection disabled. See `PLATFORM_SECURITY_AUDIT.md` for triage and links.
 No unrelated migration or permission change was applied.
+
+
+## 2026-11-01 — specifically approved payment-case payout guards
+
+Applied only `20261101111934_payment_case_holds.sql` with explicit user approval;
+remote version `20261101112654`, name `payment_case_holds`. SHA256:
+`31369b6fd24a9431101a6b172f2d53d2600c7a2ce8be93916d2323fd4dfcfcb4`.
+
+Pre/post financial record counts and aggregate wallet balances were unchanged.
+New cases/events tables were empty and RLS enabled; browser SELECT and anonymous
+recording execution were denied. Service-role event UPDATE and case DELETE were
+denied. Payout insertion guard was present; current wallets were not held. No
+live refund, payout, case creation, historical replay or balance test was run.
+See `RISK_REMEDIATION_STATUS.md` for behavior, limitations and operator configuration.
