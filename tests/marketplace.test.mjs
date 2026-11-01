@@ -4,7 +4,7 @@ import { test } from 'node:test'
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 const buyer=id(1),producer=id(2),second=id(3),collab=id(4)
 test('marketplace integrity in a disposable PostgreSQL database',async t=>{
-  const db=await marketplaceFixture(t)
+  const db=await marketplaceFixture(t,{guestCheckout:true})
   for(const [uid,role] of [[buyer,'artist'],[producer,'producer'],[second,'producer'],[collab,'producer']]) await db.query('INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES($1,$2,$3)',[uid,`${uid}@example.invalid`,{role,full_name:role}])
   const defaults={}
   for(const kind of ['mp3','wav','trackout','exclusive'])defaults[kind]={contract_text:`${kind} license for {{TRACK_TITLE}} by {{PRODUCER_NAME}} to {{BUYER_NAME}}. {{STREAM_LIMIT}} streams. {{DATE}}`,streaming_limit:kind==='exclusive'?0:50000,music_video_limit:1,radio_broadcasting:false}

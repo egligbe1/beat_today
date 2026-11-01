@@ -1,3 +1,5 @@
+import {createGuestReceipt,decryptGuestReceipt,guestReceiptLink} from '@/lib/guestCheckout'
+import {guestReceiptSecret} from '@/lib/commerce/purchaseAccess'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { after } from 'next/server'
 import { sendLicenseEmail } from '@/lib/utils/emailService'
@@ -31,11 +33,21 @@ export async function deliverLicenses(orderId?: string) {
       const item = job.order_items as any
       const snapshot = item.agreement_snapshot
       if (!snapshot?.legal_text) throw new Error('Agreement snapshot missing; reconcile this purchase')
-      const { data: buyer, error: buyerError } = await admin.auth.admin.getUserById(item.orders.buyer_id)
-      if (buyerError || !buyer.user?.email) throw new Error('Buyer email unavailable')
+      let email:string,downloadUrl:string
+      const site=process.env.NEXT_PUBLIC_SITE_URL!
+      if(item.orders.buyer_id){
+        const {data:buyer,error:buyerError}=await admin.auth.admin.getUserById(item.orders.buyer_id)
+        if(buyerError||!buyer.user?.email)throw new Error('Buyer email unavailable')
+        email=buyer.user.email;downloadUrl=new URL('/checkout/success?order_id='+item.order_id,site).href
+      }else{
+        const fresh=createGuestReceipt(guestReceiptSecret())
+        const {data:guest,error:guestError}=await admin.rpc('refresh_guest_receipt',{p_order:item.order_id,p_hash:fresh.hash,p_ciphertext:fresh.ciphertext})
+        if(guestError||!guest)throw new Error('Guest delivery details unavailable; retry after checking account claim')
+        email=guest.email;downloadUrl=guestReceiptLink(site,item.order_id,decryptGuestReceipt(guest.ciphertext,guestReceiptSecret()))
+      }
       const pdf = await generateAgreementPdf(snapshot.legal_text)
       const result = await sendLicenseEmail({
-        to: buyer.user.email, buyerName: snapshot.buyer_name, trackTitle: snapshot.track_title,
+        to: email, downloadUrl, buyerName: snapshot.buyer_name, trackTitle: snapshot.track_title,
         contractHtml: snapshot.legal_text, idempotencyKey: `license-${job.order_item_id}`,
         attachments: [{ filename: `License_${job.order_item_id}.pdf`, content: pdf }],
       })

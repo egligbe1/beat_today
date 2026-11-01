@@ -1,5 +1,5 @@
+import {purchaseAccess} from '@/lib/commerce/purchaseAccess'
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { presignDownload } from '@/lib/r2'
 import { ownsAsset, UUID_RE } from '@/lib/security'
@@ -26,12 +26,8 @@ export async function GET(req: Request) {
     }
     if (!['mp3','wav','stems'].includes(fileType)) return NextResponse.json({ error: 'Invalid file type' }, { status: 400 })
 
-    // 1. Verify user is authenticated
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const access=await purchaseAccess(orderId)
+    if(!access)return NextResponse.json({error:'Purchase not found'},{status:404})
 
     // 2. Verify user owns this order and the beat is in it
     const { data: orderItem } = await supabaseAdmin
@@ -45,17 +41,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Purchase not found' }, { status: 403 })
     }
 
-    // Verify order belongs to this user
-    const { data: order } = await supabaseAdmin
-      .from('orders')
-      .select('buyer_id, status')
-      .eq('id', orderId)
-      .single()
-
-    if (!order || order.buyer_id !== user.id) {
-      return NextResponse.json({ error: 'Purchase not found' }, { status: 404 })
-    }
-
+    const order=access.order
     if (order.status !== 'completed') {
       return NextResponse.json({ 
         error: 'Order still processing. Please wait a few moments for verification to complete.' 
@@ -92,7 +78,7 @@ export async function GET(req: Request) {
     const filename = `${beat?.title || 'beat'}.${ext}`
 
     try {
-      const url = await presignDownload(filePath, { filename, expiresIn: 3600 })
+      const url = await presignDownload(filePath, { filename, expiresIn: access.guest?600:3600 })
       return NextResponse.json({ url, filename },{headers:{'Cache-Control':'private, no-store'}})
     } catch (err) {
       console.error('Presign download error:', err)

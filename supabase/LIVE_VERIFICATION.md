@@ -246,3 +246,19 @@ The function exposes a bounded safe projection of published, active-PRO studios
 with usable services/hours. Anonymous directory execution was enabled while direct
 anonymous blocked-time reads remained denied. The first page returned one eligible
 studio. No records or balances were changed and no sample booking was created.
+
+
+## 2026-11-01 — specifically approved guest license checkout
+
+Applied only `20261101161606_guest_license_checkout.sql` after explicit approval.
+Remote version `20261101163905`, name `guest_license_checkout`. SHA256:
+`c6756b330c31f79738264fce7afc6a6bc1ce9c1b5efe890fe81140a41c2a2d79`.
+Preflight confirmed the live original checkout body matched the reviewed source
+(MD5 `ce3c50f2b3287ee962ccba6a6d619be7`) and existing nullable buyer columns.
+Order/license/ledger/wallet counts and aggregate balances were unchanged. The new
+guest table was empty with RLS enabled and no anon/authenticated read permission.
+Guest preparation and purchase claims are service-only; direct authenticated
+claims are denied. The server requires a fresh email-only proof bound to the
+authenticated account before forwarding a claim, independent of signup settings.
+Existing checkout execution remains service-only. No live guest order, email,
+claim, payment, payout or other customer record was created as a test.

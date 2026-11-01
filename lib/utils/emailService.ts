@@ -57,3 +57,14 @@ export async function sendLicenseEmail({ to, buyerName, trackTitle, contractHtml
     return { success: false, error: err }
   }
 }
+
+export async function sendGuestRecoveryEmail(to:string,links:{reference:string;url:string}[]){
+ const items=links.map(item=>`<li style="margin:16px 0"><a href="${escapeHtml(item.url)}">Open purchase ${escapeHtml(item.reference)}</a></li>`).join('')
+ const {error}=await resend.emails.send({from:'BeatToday <orders@beattoday.com>',to:[to],subject:'Your BeatToday purchase links',html:`<div style="font-family:sans-serif;line-height:1.6"><h1>Your purchases</h1><p>Use these private links to open your completed guest purchases. Keep them private.</p><ul>${items}</ul><p>If you have added a purchase to an account, sign in to your BeatToday library instead.</p></div>`})
+ if(error)throw new Error('Purchase recovery email was not accepted')
+}
+
+export async function sendGuestClaimEmail(to:string,url:string){
+ const {error}=await resend.emails.send({from:'BeatToday <orders@beattoday.com>',to:[to],subject:'Confirm your BeatToday purchase library',html:`<div style="font-family:sans-serif;line-height:1.6"><h1>Add your guest purchases</h1><p>Confirm that you own this email to add completed guest purchases to your BeatToday account. This confirmation expires in 15 minutes.</p><p><a href="${escapeHtml(url)}">Confirm my purchase library</a></p><p>If you did not request this, ignore this email. Your purchases have not been moved.</p></div>`})
+ if(error)throw new Error('Purchase confirmation email was not accepted')
+}

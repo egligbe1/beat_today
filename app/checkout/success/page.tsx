@@ -1,6 +1,8 @@
 import { CheckCircle2, Music } from 'lucide-react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import {createAdminClient} from '@/lib/supabase/admin'
+import {purchaseAccess} from '@/lib/commerce/purchaseAccess'
+import PurchaseCompleteEffects from '@/components/commerce/PurchaseCompleteEffects'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { formatCurrency } from '@/lib/utils'
@@ -19,26 +21,15 @@ export default async function CheckoutSuccessPage(
     return notFound()
   }
 
-  const supabase = await createClient()
-
-  // 1. Fetch Order and Items
-  const { data: order } = await supabase
-    .from('orders')
-    .select('*, buyer_profiles:users_profiles!buyer_id(*)')
-    .eq('id', orderId)
-    .single()
-
-  if (!order) {
-    return notFound()
-  }
-
-  const isPending = order.status === 'pending' || order.status === 'processing'
-
-  const { data: orderItems } = await supabase
-    .from('order_items')
-    .select('*, beats(*), order_item_licenses(*)')
-    .eq('order_id', orderId)
-    .order('created_at', { ascending: true })
+  const access=await purchaseAccess(orderId)
+  if(!access)return <div className="max-w-xl mx-auto p-8 py-20 text-center"><h1 className="text-3xl font-bold">Open your purchase securely</h1><p className="text-zinc-400 mt-4">Use the private purchase link in your email, recover a fresh link, or sign in to your library.</p><div className="flex justify-center gap-5 mt-7 text-orange-400"><Link href="/purchases/recover">Recover by email</Link><Link href="/login?redirect=%2Flibrary">Sign in</Link></div></div>
+  const order=access.order
+  const isPending=order.status==='pending'||order.status==='processing'
+  if(!isPending&&order.status!=='completed')return <div className="max-w-xl mx-auto p-8 py-20 text-center"><h1 className="text-3xl font-bold">Your order is not complete</h1><p className="mt-4 text-zinc-400">If you were charged, contact support with your payment reference before paying again.</p><Link className="inline-block text-orange-400 mt-6" href="/library">Open purchase history</Link></div>
+  const {data:orderItems,error}=await createAdminClient().from('order_items')
+    .select('id,beat_id,license_type,price,asset_snapshot,agreement_snapshot,beats(id,title,cover_url,file_mp3_url,file_wav_url,file_stems_url),order_item_licenses(final_legal_text)')
+    .eq('order_id',orderId).order('created_at',{ascending:true})
+  if(error)throw new Error('Your purchase could not be loaded. Please try again.')
 
   // Polling component imported here
   const SuccessPolling = (await import('./SuccessPolling')).default
@@ -55,14 +46,17 @@ export default async function CheckoutSuccessPage(
         </div>
 
         <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight">
-          {isPending ? 'Payment Received!' : 'Payment Successful!'}
+          {isPending ? 'Payment confirmation pending' : 'Your purchase is ready'}
         </h1>
         <p className="text-text-muted text-lg">
           {isPending 
-            ? "We're currently finalizing your downloads and license agreements. This usually takes a few seconds."
+            ? "Your order is waiting for verified payment confirmation. Downloads will appear when it is complete."
             : `Thank you for your purchase. Your order ${order.gateway_reference} is complete.`
           }
         </p>
+
+        {!isPending&&<PurchaseCompleteEffects items={(orderItems||[]).map(item=>({beat_id:item.beat_id,license_type:item.license_type}))}/>}
+        {access.guest&&!isPending&&<section className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-6 text-left"><h2 className="font-bold text-lg">Keep every license in one place</h2><p className="mt-3 text-sm text-zinc-400">Your license and private download link will be emailed to you. An optional account gives you purchase history, ongoing access and collaboration with producers. Use the same delivery email and verify it to add this purchase.</p><div className="mt-5 flex flex-wrap gap-4"><Link className="rounded-full bg-orange-500 px-5 py-3 text-sm font-bold" href="/signup?role=artist&redirect=%2Flibrary%3Fclaim_guest%3D1">Create my artist account</Link><Link className="self-center text-sm text-zinc-400" href="/login?redirect=%2Flibrary%3Fclaim_guest%3D1">Already registered? Sign in</Link></div></section>}
 
         <div className="bg-bg-surface rounded-3xl border border-border-subtle p-8 text-left space-y-6 shadow-2xl">
             {isPending ? (
@@ -95,13 +89,10 @@ export default async function CheckoutSuccessPage(
                                 {/* Downloads — DownloadButton fetches a signed URL then triggers
                                     the download (never navigate straight to the JSON API). */}
                                 <div className="flex flex-wrap items-center gap-2">
-                                    {(item.beats?.file_mp3_url || item.beats?.file_wav_url) && (
+                                    {(item.asset_snapshot?.mp3 || item.asset_snapshot?.wav || item.beats?.file_mp3_url || item.beats?.file_wav_url) && (
                                         <DownloadButton orderId={orderId} beatId={item.beats.id} fileType="mp3" label="Download" className="!py-2.5 !rounded-lg" />
                                     )}
-                                    {['wav', 'trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_wav_url && (
-                                        <DownloadButton orderId={orderId} beatId={item.beats.id} fileType="wav" label="WAV" className="!py-2.5 !rounded-lg" />
-                                    )}
-                                    {['trackout', 'exclusive'].includes(item.license_type) && item.beats?.file_stems_url && (
+                                    {['trackout', 'exclusive'].includes(item.license_type) && (item.asset_snapshot?.stems || item.beats?.file_stems_url) && (
                                         <DownloadButton orderId={orderId} beatId={item.beats.id} fileType="stems" label="Stems" className="!py-2.5 !rounded-lg" />
                                     )}
                                 </div>

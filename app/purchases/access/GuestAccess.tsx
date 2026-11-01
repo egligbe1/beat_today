@@ -1,0 +1,10 @@
+'use client'
+import {useEffect,useRef,useState} from 'react'
+import Link from 'next/link'
+import {LockKeyhole} from 'lucide-react'
+export default function GuestAccess(){
+ const credential=useRef<{order_id:string;token:string}|null>(null)
+ const [ready,setReady]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ useEffect(()=>{const params=new URLSearchParams(window.location.hash.slice(1)),order_id=params.get('order'),token=params.get('token');if(order_id&&token)credential.current={order_id,token};window.history.replaceState(null,'','/purchases/access');setReady(true)},[])
+ return <div className="max-w-lg mx-auto px-5 py-20 text-center"><LockKeyhole className="w-10 h-10 mx-auto text-orange-400"/><h1 className="text-3xl font-black mt-6">Your purchase, securely</h1><p className="mt-4 text-zinc-400">Open your receipt, download your files and keep your license agreement.</p>{ready&&credential.current?<button disabled={busy} className="mt-7 rounded-full bg-orange-500 px-7 py-4 font-bold disabled:opacity-50" onClick={async()=>{if(!credential.current||busy)return;setBusy(true);setError('');try{const response=await fetch('/api/purchases/access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(credential.current)});const data=await response.json();if(!response.ok||!data.url)throw new Error(data.error||'Purchase link could not be opened');window.location.replace(data.url)}catch(error){setError(error instanceof Error?error.message:'Please try again');setBusy(false)}}}>{busy?'Opening…':'Open my purchase'}</button>:ready&&<p className="mt-7 text-sm text-zinc-400">Open the full purchase link in your email, or request a fresh link below.</p>}{error&&<p role="alert" className="mt-5 text-sm text-red-300">{error}</p>}<div className="mt-7 flex flex-wrap justify-center gap-5 text-sm"><Link href="/purchases/recover" className="text-orange-400">Recover by email</Link><Link href="/login?redirect=%2Flibrary" className="text-zinc-400">Sign in to my library</Link></div></div>
+}

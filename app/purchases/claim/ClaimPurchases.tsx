@@ -1,0 +1,8 @@
+'use client'
+import {useEffect,useRef,useState} from 'react'
+import Link from 'next/link'
+export default function ClaimPurchases(){
+ const proof=useRef<string|null>(null),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ useEffect(()=>{proof.current=new URLSearchParams(window.location.hash.slice(1)).get('proof');window.history.replaceState(null,'','/purchases/claim');setReady(true)},[])
+ return <div className="max-w-lg mx-auto px-5 py-20"><h1 className="text-3xl font-black">Keep your guest purchases together</h1><p className="mt-4 text-zinc-400">Confirm your email ownership to add completed guest purchases to the account that requested this confirmation. Your original license terms remain unchanged.</p><button disabled={!ready||busy} className="mt-7 rounded-full bg-orange-500 px-6 py-4 font-bold disabled:opacity-50" onClick={async()=>{if(busy)return;setBusy(true);setError('');try{const response=await fetch('/api/purchases/claim/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proof:proof.current||undefined})}),data=await response.json();if(data.login){window.location.assign('/login?redirect=%2Fpurchases%2Fclaim');return}if(!response.ok)throw new Error(data.error||'Please try again');window.location.replace('/library')}catch(error){setError(error instanceof Error?error.message:'Please try again');setBusy(false)}}}>{busy?'Adding purchases…':'Confirm & add my purchases'}</button>{error&&<p role="alert" className="mt-5 text-sm text-red-300">{error}</p>}<Link className="block mt-6 text-sm text-zinc-400" href="/library">Return to my library</Link></div>
+}
