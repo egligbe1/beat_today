@@ -5,19 +5,17 @@ import { X, Trash2, ShoppingBag, Tag, CheckCircle2, Loader2 } from 'lucide-react
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useCurrency } from '@/lib/providers/CurrencyProvider'
 
 export default function CartDrawer() {
   const { items, isOpen, setIsOpen, removeItem, getTotal } = useCartStore()
   const { convertAndFormat } = useCurrency()
-  const [loading, setLoading] = useState(false)
+  const loading=false
   const [error, setError] = useState<string | null>(null)
   const [promoCode, setPromoCode] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount_amount: number; label: string } | null>(null)
   const router = useRouter()
-  const supabase = createClient()
   
   // Close on esc key
   useEffect(() => {
@@ -52,40 +50,9 @@ export default function CartDrawer() {
 
   const finalTotal = Math.max(0, getTotal() - (appliedPromo?.discount_amount || 0))
 
-  const handleCheckout = async () => {
-    setLoading(true)
-    setError(null)
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      setLoading(false)
-      setIsOpen(false)
-      router.push('/login?redirect=checkout')
-      return
-    }
-
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, promo_code: appliedPromo?.code, discount_amount: appliedPromo?.discount_amount })
-      })
-      
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to initialize checkout')
-      }
-      
-      if (data.url) {
-        globalThis.location.href = data.url
-      }
-      
-    } catch (err: any) {
-      setError(err.message)
-      setLoading(false)
-    }
+  const handleCheckout = () => {
+    setIsOpen(false)
+    router.push('/checkout'+(appliedPromo?'?promo='+encodeURIComponent(appliedPromo.code):''))
   }
 
   return (

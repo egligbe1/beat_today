@@ -1,3 +1,4 @@
+import ClaimGuestPurchases from '@/components/commerce/ClaimGuestPurchases'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
@@ -5,7 +6,8 @@ import { redirect } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 import { BookOpen, Download, Clock, FileText } from 'lucide-react'
 
-export default async function LibraryPage() {
+export default async function LibraryPage({searchParams}:{searchParams:Promise<{claim_guest?:string}>}) {
+  const claim=(await searchParams).claim_guest==='1'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?redirect=/library')
@@ -30,6 +32,7 @@ export default async function LibraryPage() {
           </Link>
         </div>
 
+        <ClaimGuestPurchases automatic={claim}/>
         <div className="grid gap-6">
           {orders && orders.length > 0 ? (
             orders.map((order: any) => (

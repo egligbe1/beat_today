@@ -114,6 +114,7 @@ export default async function Footer() {
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
             <Link href="/licensing" className="hover:text-white transition-colors">License Info</Link>
+            <Link href="/purchases/recover" className="hover:text-white transition-colors">Find My Purchases</Link>
           </div>
           <div className="text-[10px] font-black uppercase tracking-widest text-text-muted/40">
             Powered by Paystack
