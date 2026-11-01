@@ -10,7 +10,7 @@ export function uploadMetadata(body:Record<string,unknown>) {
  const purpose=body.purpose as UploadPurpose
  const ext=typeof body.ext==='string'?body.ext.trim().toLowerCase():''
  const contentType=typeof body.contentType==='string'?body.contentType.toLowerCase():''
- if(!formats[purpose][ext]?.includes(contentType))throw new RequestError('File extension and content type must match an allowed format')
+ if(!Object.hasOwn(formats[purpose],ext)||!formats[purpose][ext].includes(contentType))throw new RequestError('File extension and content type must match an allowed format')
  const max=purpose==='stems'?1024*1024*1024:purpose==='master'?250*1024*1024:10*1024*1024
  if(typeof body.size!=='number'||!Number.isSafeInteger(body.size)||body.size<1||body.size>max)throw new RequestError('File size exceeds this upload limit')
  return {purpose,ext,contentType,size:body.size,beatId:body.beatId}

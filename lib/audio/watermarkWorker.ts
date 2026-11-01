@@ -23,7 +23,7 @@ function getFfmpegPath(): string {
 async function getAudioDuration(filePath: string): Promise<number> {
   return new Promise((resolve) => {
     const ffmpegPath = getFfmpegPath()
-    const proc = spawn(ffmpegPath, ['-i', filePath])
+    const proc = spawn(ffmpegPath, ['-nostdin','-protocol_whitelist','file,pipe','-format_whitelist','mp3,wav','-i',filePath],{env:{NODE_ENV:process.env.NODE_ENV,PATH:process.env.PATH||'/usr/bin:/bin',LANG:'C',LC_ALL:'C'},stdio:['ignore','ignore','pipe']})
     const timer = setTimeout(() => proc.kill('SIGKILL'), 15000)
     let stderr = ''
     proc.stderr.on('data', (d) => { stderr = (stderr + d.toString()).slice(-100000) })
@@ -42,7 +42,7 @@ async function getAudioDuration(filePath: string): Promise<number> {
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const ffmpegPath = getFfmpegPath()
-    const proc = spawn(ffmpegPath, args)
+    const proc = spawn(ffmpegPath,['-nostdin','-protocol_whitelist','file,pipe','-format_whitelist','mp3,wav,lavfi','-threads','1',...args],{env:{NODE_ENV:process.env.NODE_ENV,PATH:process.env.PATH||'/usr/bin:/bin',LANG:'C',LC_ALL:'C'},stdio:['ignore','ignore','pipe']})
     proc.stderr.resume()
     const timer = setTimeout(() => { proc.kill('SIGKILL'); reject(new Error('Timeout')); }, 90000)
     proc.on('close', (code) => {

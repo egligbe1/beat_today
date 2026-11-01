@@ -29,6 +29,11 @@ export async function POST(request: Request) {
           const { error } = await admin.rpc('finish_payout',{p_reference:attempt.reference,p_status:result.data.status,p_code:result.data.transfer_code || null})
           if (error) throw error
         } else if (attempt.transfer_payload) {
+          // Never initiate/retry a transfer while a refund/dispute hold is open.
+          // Provider reads and authoritative finalization still proceed.
+          const {data:held,error:holdError}=await admin.rpc('payment_payout_blocked',{p_producer:attempt.producer_id})
+          if(holdError)throw holdError
+          if(held){results.push({reference:attempt.reference,held:true});continue}
           // A stable reference makes retries safe even if an earlier response was lost.
           const retry = await paystack('transfer', attempt.transfer_payload)
           if (retry.result.status) {
@@ -58,6 +63,9 @@ export async function POST(request: Request) {
       if (reserveError) { console.error('Payout reservation failed',reserveError); continue }
       if (!attemptId) continue
       try {
+        const {data:held,error:holdError}=await admin.rpc('payment_payout_blocked',{p_producer:wallet.producer_id})
+        if(holdError)throw holdError
+        if(held){results.push({reference:payload.reference,held:true});continue}
         const { result } = await paystack('transfer',payload)
         if (result.status) {
           const { error: finishError } = await admin.rpc('finish_payout',{

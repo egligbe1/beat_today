@@ -2,8 +2,8 @@ import {readJsonObject,safeRequestError} from '@/lib/http'
 import {uploadMetadata,uploadPlanAllowed} from '@/lib/uploads'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { presignUpload, publicUrl, R2_PUBLIC_BUCKET, R2_PRIVATE_BUCKET } from '@/lib/r2'
-import { randomUUID } from 'node:crypto'
+import { presignUpload, R2_PRIVATE_BUCKET } from '@/lib/r2'
+import {issueUploadTicket} from '@/lib/uploads/ticket'
 import { UUID_RE, effectiveTier } from '@/lib/security'
 import { rateLimit } from '@/lib/rateLimit'
 
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   if (!await rateLimit(`uploads:${user.id}`, 20, 60)) return NextResponse.json({ error: 'Please wait' }, { status: 429 })
 
   let metadata
-  try{metadata=uploadMetadata(await readJsonObject(req))}catch(error){const failure=safeRequestError(error);return NextResponse.json({error:failure.message},{status:failure.status})}
+  try{const body=await readJsonObject(req);if(body.verification_version!==1)return NextResponse.json({error:'Refresh this page before uploading so your file can be verified.'},{status:409});metadata=uploadMetadata(body)}catch(error){const failure=safeRequestError(error);return NextResponse.json({error:failure.message},{status:failure.status})}
   const {purpose,beatId,ext,contentType,size}=metadata
   const { data: profile } = await supabase.from('users_profiles').select('role').eq('id', user.id).single()
   const { data: settings } = await supabase.from('producer_settings').select('subscription_tier,subscription_active,subscription_expires_at').eq('user_id', user.id).maybeSingle()
@@ -33,51 +33,10 @@ export async function POST(req: Request) {
     if (beat?.producer_id !== user.id) return NextResponse.json({ error: 'Save your draft before uploading files' }, { status: 403 })
   }
 
-  const safeExt = String(ext || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin'
-  const safeBeatId = String(beatId || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40)
-  const type = String(contentType || 'application/octet-stream').slice(0, 100)
-  const ts = Date.now()
-
-  let bucket: string
-  let key: string
-  let isPublic: boolean
-
-  switch (purpose) {
-    case 'cover':
-      if (!safeBeatId) return NextResponse.json({ error: 'beatId required' }, { status: 400 })
-      bucket = R2_PUBLIC_BUCKET; isPublic = true
-      key = `covers/${user.id}/${safeBeatId}-${ts}.webp`
-      break
-    case 'master':
-      if (!safeBeatId) return NextResponse.json({ error: 'beatId required' }, { status: 400 })
-      bucket = R2_PRIVATE_BUCKET; isPublic = false
-      key = `masters/${user.id}/${safeBeatId}-${randomUUID()}.${safeExt === 'wav' ? 'wav' : 'mp3'}`
-      break
-    case 'stems':
-      if (!safeBeatId) return NextResponse.json({ error: 'beatId required' }, { status: 400 })
-      bucket = R2_PRIVATE_BUCKET; isPublic = false
-      key = `stems/${user.id}/${safeBeatId}-${randomUUID()}.zip`
-      break
-    case 'avatar':
-      bucket = R2_PUBLIC_BUCKET; isPublic = true
-      key = `avatars/${user.id}-${ts}.${safeExt}`
-      break
-    case 'producerTag':
-      bucket = R2_PUBLIC_BUCKET; isPublic = true
-      key = `producer-tags/${user.id}/tag.mp3`
-      break
-    default:
-      return NextResponse.json({ error: 'Invalid purpose' }, { status: 400 })
-  }
-
   try {
-    const uploadUrl = await presignUpload(bucket, key, type, 600, size)
-    return NextResponse.json({
-      uploadUrl,
-      key,
-      bucket,
-      publicUrl: isPublic ? publicUrl(key) : null,
-    })
+    const {token,upload}=issueUploadTicket(metadata,user.id,process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!)
+    const uploadUrl = await presignUpload(R2_PRIVATE_BUCKET,upload.source,contentType,600,size)
+    return NextResponse.json({uploadUrl,ticket:token},{headers:{'Cache-Control':'private, no-store'}})
   } catch (err) {
     console.error('presign error:', err)
     return NextResponse.json({ error: 'Could not create upload URL' }, { status: 500 })

@@ -10,7 +10,7 @@ export async function GET(request:Request){
  if(missing.length)return NextResponse.json({status:'not_ready',missing_configuration:missing},{status:503,headers})
  try{
   const counts=await operationalCounts(createAdminClient())
-  const needsAttention=counts.failed_deliveries>0||counts.failed_watermarks>0||counts.stale_watermark_leases>0
+  const needsAttention=counts.failed_deliveries>0||counts.failed_watermarks>0||counts.stale_watermark_leases>0||counts.open_payment_cases>0
   return NextResponse.json({status:needsAttention?'attention_required':'ready',counts,timestamp:new Date().toISOString()},{status:needsAttention?503:200,headers})
  }catch{return NextResponse.json({status:'not_ready',error:'Dependency check failed'},{status:503,headers})}
 }

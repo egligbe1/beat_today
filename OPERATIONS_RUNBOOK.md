@@ -86,3 +86,21 @@ transfers, deletion or a production restore.
 - Record the recovery point/time achieved, evidence and missing components.
 - A production restore or upgrade is a separately reviewed operation with explicit
   approval. Never use reset/setup or quarantined destructive SQL as recovery tools.
+
+
+## Refund/dispute review and encrypted export follow-up
+
+Signed refund/dispute events now enter private `payment_cases`; open cases block
+new payouts. Use `/dashboard/operations` with an explicitly configured
+`OPERATIONS_USER_IDS` account. A missing transaction match pauses all new payouts.
+An in-flight transfer may already have left the platform; keep verifying it rather
+than assuming it failed. Never release a hold until provider and accounting review
+is complete. The review screen records evidence; it does not calculate recovery,
+issue refunds, edit balances or submit dispute evidence to Paystack.
+
+`node scripts/backup-platform.mjs --plan` is offline and prints configuration needs.
+Do not run `--export` without specific approval for that export and a confirmed
+destination/recovery key. A completed export contains `COMPLETE.json` plus encrypted
+manifest/database/assets. Missing COMPLETE means an incomplete backup. No script
+restores into production. The isolated recovery test uses synthetic PGlite data,
+not a live hosted Postgres dump. See `RISK_REMEDIATION_STATUS.md`.

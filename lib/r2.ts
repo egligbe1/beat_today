@@ -6,6 +6,9 @@ import {
   GetObjectCommand,
   DeleteObjectsCommand,
   ListObjectsV2Command,
+  HeadObjectCommand,
+  CopyObjectCommand,
+  DeleteObjectCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
@@ -95,4 +98,35 @@ export async function deleteObjects(bucket: string, keys: string[]): Promise<voi
   const clean = keys.filter(Boolean)
   if (clean.length === 0) return
   await r2().send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: clean.map((Key) => ({ Key })) } }))
+}
+
+export async function objectInfo(bucket:string,key:string){
+ try{return await r2().send(new HeadObjectCommand({Bucket:bucket,Key:key}),{abortSignal:AbortSignal.timeout(15000)})}
+ catch(error){if((error as {$metadata?:{httpStatusCode?:number}})?.$metadata?.httpStatusCode===404)return null;throw error}
+}
+export async function objectBytes(bucket:string,key:string,start:number,end:number,etag:string){
+ const result=await r2().send(new GetObjectCommand({Bucket:bucket,Key:key,Range:`bytes=${start}-${end}`,IfMatch:etag}),{abortSignal:AbortSignal.timeout(20000)})
+ const chunks:Buffer[]=[];let size=0
+ for await(const chunk of result.Body as unknown as AsyncIterable<Uint8Array>){size+=chunk.length;if(size>end-start+1)throw new Error('Unexpected object range');chunks.push(Buffer.from(chunk))}
+ if(size!==end-start+1)throw new Error('Incomplete object range')
+ return Buffer.concat(chunks)
+}
+export async function objectToFile(bucket:string,key:string,etag:string,path:string,expectedSize:number){
+ const {createWriteStream}=await import('node:fs'),{Readable,Transform}=await import('node:stream'),{pipeline}=await import('node:stream/promises')
+ const result=await r2().send(new GetObjectCommand({Bucket:bucket,Key:key,IfMatch:etag}),{abortSignal:AbortSignal.timeout(45000)})
+ let size=0
+ const bound=new Transform({transform(chunk,encoding,callback){size+=chunk.length;if(size>expectedSize)callback(new Error('Upload size changed'));else callback(null,chunk)}})
+ await pipeline(Readable.from(result.Body as unknown as AsyncIterable<Uint8Array>),bound,createWriteStream(path,{flags:'wx',mode:0o600}))
+ if(size!==expectedSize)throw new Error('Upload size changed')
+}
+export async function publishVerifiedObject(source:string,key:string,bucket:string,etag:string,contentType:string,metadata:Record<string,string>){
+ await r2().send(new CopyObjectCommand({Bucket:bucket,Key:key,CopySource:`${R2_PRIVATE_BUCKET}/${source.split('/').map(encodeURIComponent).join('/')}`,CopySourceIfMatch:etag,MetadataDirective:'REPLACE',Metadata:metadata,ContentType:contentType}),{abortSignal:AbortSignal.timeout(30000)})
+}
+export async function putVerifiedImage(bucket:string,key:string,bytes:Buffer,metadata:Record<string,string>){
+ await r2().send(new PutObjectCommand({Bucket:bucket,Key:key,Body:bytes,ContentType:'image/webp',Metadata:metadata}),{abortSignal:AbortSignal.timeout(20000)})
+}
+/** Only the new temporary staging object, after publication; never a clean asset. */
+export async function removeUploadStage(key:string){
+ if(!/^quarantine\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(mp3|wav|zip|webp|png|jpe?g)$/.test(key))throw new Error('Invalid staging key')
+ await r2().send(new DeleteObjectCommand({Bucket:R2_PRIVATE_BUCKET,Key:key}),{abortSignal:AbortSignal.timeout(15000)})
 }

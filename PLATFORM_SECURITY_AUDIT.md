@@ -1,5 +1,8 @@
 # BeatToday platform security and payments audit
 
+Implementation follow-up: [RISK_REMEDIATION_STATUS.md](RISK_REMEDIATION_STATUS.md)
+records the subsequent fixes, deployment evidence and remaining configuration.
+
 Date: 2026-11-01. Baseline: `84203f6` on `dev`; remediation is in this working tree.
 Method: ECC Security Review, Verification Loop and the earlier ECC platform review.
 This report distinguishes repository findings, isolated tests and narrowly scoped
