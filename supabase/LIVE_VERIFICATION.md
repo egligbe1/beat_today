@@ -235,3 +235,14 @@ recording execution were denied. Service-role event UPDATE and case DELETE were
 denied. Payout insertion guard was present; current wallets were not held. No
 live refund, payout, case creation, historical replay or balance test was run.
 See `RISK_REMEDIATION_STATUS.md` for behavior, limitations and operator configuration.
+
+
+## 2026-11-01 — specifically approved public studio directory
+
+Applied only `20261101161604_public_studio_directory.sql` with explicit approval.
+Remote version `20261101162058`, name `public_studio_directory`. SHA256:
+`da5fd4784bdb527b390b907332b31163c0f93318af5ccf671bcfd9a9a9f279f6`.
+The function exposes a bounded safe projection of published, active-PRO studios
+with usable services/hours. Anonymous directory execution was enabled while direct
+anonymous blocked-time reads remained denied. The first page returned one eligible
+studio. No records or balances were changed and no sample booking was created.

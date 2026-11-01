@@ -20,7 +20,7 @@ const DEFAULT_SLIDES: Slide[] = [
   {
     id: 's1',
     title: "Your First Hit Starts Here.",
-    subtitle: "License premium beats from Africa's top producers. Instant delivery. Full ownership.",
+    subtitle: "License premium beats from Africa's top producers. Instant delivery. Clear license terms.",
     image: "/hero-studio.webp",
     ctaText: "Explore Discovery",
     ctaHref: "/search",
@@ -126,12 +126,13 @@ export default function HeroCarousel({ tracks = [] }: { tracks?: any[] }) {
                     {slides[current].ctaText}
                   </Link>
                   <Link 
-                    href="/signup?role=producer"
+                    href="/producers"
                     className="flex items-center justify-center h-14 px-8 bg-white/5 border border-white/10 text-white rounded-full font-black text-base uppercase tracking-wide hover:bg-white/15 transition-all"
                   >
-                    Join the Collective
+                    Book a Producer
                   </Link>
                 </div>
+                <p className="mt-5 text-sm text-zinc-400">Make music for artists? <Link href="/join" prefetch={false} className="text-white underline underline-offset-4 hover:text-orange-400">Join the Collective</Link></p>
               </motion.div>
             </div>
           </div>
